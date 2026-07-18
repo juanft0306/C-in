@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>C🌍in · Importa y Vende</title>
+  <!-- Font Awesome para iconos -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="container">
+      <div class="logo">
+        <span class="logo-icon">C🌍in</span>
+        <span class="logo-tagline">Importa · Calcula · Crece</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-outline" id="btnRefresh">
+          <i class="fas fa-sync-alt"></i> Actualizar
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="container">
+
+    <!-- SECCIÓN: NUEVO PRODUCTO (COSTEO) -->
+    <section class="card" id="formSection">
+      <div class="card-header">
+        <h2><i class="fas fa-calculator"></i> Costeo y creación de producto</h2>
+        <span class="badge">Nuevo</span>
+      </div>
+      <form id="productForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label><i class="fas fa-tag"></i> Nombre *</label>
+            <input type="text" id="nombre" placeholder="Ej: Cargador USB-C" required />
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-barcode"></i> SKU *</label>
+            <input type="text" id="sku" placeholder="Código único" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label><i class="fas fa-dollar-sign"></i> Precio unitario (China) *</label>
+            <input type="number" id="precioUnitario" step="0.01" placeholder="1.20" required />
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-boxes"></i> Cantidad importada *</label>
+            <input type="number" id="cantidad" step="1" placeholder="200" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label><i class="fas fa-ship"></i> Flete internacional (USD)</label>
+            <input type="number" id="flete" step="0.01" placeholder="80" value="0" />
+          </div>
+          <div class="form-group" style="flex:2;">
+            <label><i class="fas fa-plus-circle"></i> Gastos extra (clic en +)</label>
+            <div class="extra-gastos-container">
+              <div id="gastosWrapper">
+                <div class="gasto-item">
+                  <input type="text" placeholder="Concepto" class="gasto-concepto" />
+                  <input type="number" step="0.01" placeholder="Monto" class="gasto-monto" />
+                  <button type="button" class="btn-remove-gasto" style="display:none;"><i class="fas fa-trash"></i></button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-small" id="addGastoBtn"><i class="fas fa-plus"></i> Agregar gasto</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label><i class="fas fa-percent"></i> Modo de precio</label>
+            <select id="modoPrecio">
+              <option value="porcentaje">Porcentaje de ganancia</option>
+              <option value="gananciaFija">Ganancia fija en USD</option>
+              <option value="precioMercado">Precio de mercado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-sliders-h"></i> Valor</label>
+            <input type="number" id="valorPrecio" step="0.01" placeholder="40" value="40" />
+            <small id="valorPrecioHint">Ej: 40 = 40% de ganancia</small>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Crear producto y costear</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- SECCIÓN: LISTA DE PRODUCTOS / RECOMENDADOR -->
+    <section class="card" id="listSection">
+      <div class="card-header">
+        <h2><i class="fas fa-chart-line"></i> Panel de recomendación</h2>
+        <span class="badge" id="productCount">0 productos</span>
+      </div>
+      <div id="productList">
+        <div class="empty-state">
+          <i class="fas fa-box-open"></i>
+          <p>No hay productos aún. Crea tu primer producto arriba.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 C🌍in · Hecho con <i class="fas fa-heart" style="color:#e74c3c;"></i> para importadores venezolanos</p>
+    </div>
+  </footer>
+
+  <!-- SCRIPT -->
+  <script src="script.js"></script>
+</body>
+  </html>
