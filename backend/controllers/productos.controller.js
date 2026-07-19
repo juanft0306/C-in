@@ -1,4 +1,3 @@
-const Producto = require('../models/Producto.model');
 const { 
   calcularCostoUnitario, 
   calcularPrecioVenta,
@@ -6,16 +5,17 @@ const {
   calcularIndicePrioridad 
 } = require('../utils/costos');
 
-// 1. Crear un nuevo producto (con todo el costeo)
+const db = require('../utils/db');
+
+// 1. Crear producto
 const crearProducto = async (req, res) => {
   try {
     const { 
       nombre, descripcion, sku,
       precioUnitarioChina, cantidadImportada, fleteInternacional, gastosExtra,
-      modoPrecio, valorPrecio  // modoPrecio: 'porcentaje', 'gananciaFija', 'precioMercado'
+      modoPrecio, valorPrecio
     } = req.body;
 
-    // Calcular costo unitario
     const costoData = calcularCostoUnitario(
       precioUnitarioChina, 
       cantidadImportada, 
@@ -23,17 +23,15 @@ const crearProducto = async (req, res) => {
       gastosExtra || []
     );
 
-    // Calcular precio de venta sugerido
     const precioData = calcularPrecioVenta(
       costoData.costoUnitario,
       modoPrecio || 'porcentaje',
-      valorPrecio || 40  // Por defecto 40%
+      valorPrecio || 40
     );
 
-    // Crear el documento
-    const nuevoProducto = new Producto({
+    const nuevoProducto = {
       nombre,
-      descripcion,
+      descripcion: descripcion || '',
       sku,
       precioUnitarioChina,
       cantidadImportada,
@@ -41,16 +39,28 @@ const crearProducto = async (req, res) => {
       gastosExtra: gastosExtra || [],
       costoUnitarioTotal: costoData.costoUnitario,
       precioVentaSugerido: precioData.precioVenta,
-      margenGanancia: precioData.margenGanancia
-    });
+      margenGanancia: precioData.margenGanancia,
+      // Inicializar métricas
+      interacciones: {
+        instagram: { likes: 0, comentarios: 0, compartidos: 0, alcance: 0 },
+        tiktok: { likes: 0, comentarios: 0, compartidos: 0, alcance: 0 },
+        marketplace: { likes: 0, comentarios: 0, compartidos: 0, alcance: 0 }
+      },
+      engagementPromedio: 0,
+      fechaLlegada: new Date().toISOString(),
+      ventasRegistradas: [],
+      totalVendido: 0,
+      preguntasRegistradas: 0,
+      createdAt: new Date().toISOString()
+    };
 
-    await nuevoProducto.save();
+    const guardado = db.agregarProducto(nuevoProducto);
 
     res.status(201).json({
       success: true,
       message: 'Producto creado con éxito',
       data: {
-        producto: nuevoProducto,
+        producto: guardado,
         costeo: costoData,
         precio: precioData
       }
@@ -61,21 +71,20 @@ const crearProducto = async (req, res) => {
   }
 };
 
-// 2. Obtener todos los productos (con su análisis)
+// 2. Obtener todos los productos con análisis
 const obtenerProductos = async (req, res) => {
   try {
-    const productos = await Producto.find().sort({ createdAt: -1 });
-    
-    // Enriquecer cada producto con métricas calculadas en tiempo real
+    const productos = db.leerProductos();
+
     const productosEnriquecidos = productos.map(p => {
       const totalVendido = p.totalVendido || 0;
       const diasDesdeLlegada = Math.max(1, (Date.now() - new Date(p.fechaLlegada).getTime()) / (1000 * 60 * 60 * 24));
       const rotacionMensual = (totalVendido / diasDesdeLlegada) * 30;
       
       const engagement = calcularEngagementPromedio(
-        p.interacciones.instagram || {},
-        p.interacciones.tiktok || {},
-        p.interacciones.marketplace || {}
+        p.interacciones?.instagram || {},
+        p.interacciones?.tiktok || {},
+        p.interacciones?.marketplace || {}
       );
       
       const preguntas = p.preguntasRegistradas || 1;
@@ -89,12 +98,11 @@ const obtenerProductos = async (req, res) => {
       );
 
       return {
-        ...p.toObject(),
+        ...p,
         rotacionMensual: parseFloat(rotacionMensual.toFixed(2)),
         engagementPromedio: engagement,
         tasaConversion: parseFloat(tasaConversion.toFixed(2)),
         prioridad,
-        // Precio de venta actual (si se recalcula)
         precioActual: calcularPrecioVenta(p.costoUnitarioTotal, 'porcentaje', p.margenGanancia || 40)
       };
     });
@@ -106,53 +114,45 @@ const obtenerProductos = async (req, res) => {
   }
 };
 
-// 3. Actualizar métricas de redes sociales de un producto
+// 3. Actualizar redes sociales
 const actualizarRedes = async (req, res) => {
   try {
     const { id } = req.params;
     const { instagram, tiktok, marketplace } = req.body;
 
-    const producto = await Producto.findByIdAndUpdate(id, {
-      $set: {
-        'interacciones.instagram': instagram,
-        'interacciones.tiktok': tiktok,
-        'interacciones.marketplace': marketplace
-      }
-    }, { new: true });
-
+    const producto = db.encontrarProducto(id);
     if (!producto) {
       return res.status(404).json({ success: false, message: 'Producto no encontrado' });
     }
 
-    // Recalcular engagement
-    const engagement = calcularEngagementPromedio(
-      instagram, tiktok, marketplace
-    );
+    producto.interacciones = { instagram, tiktok, marketplace };
+    const engagement = calcularEngagementPromedio(instagram, tiktok, marketplace);
     producto.engagementPromedio = engagement;
-    await producto.save();
 
-    res.json({ success: true, data: producto });
+    const actualizado = db.actualizarProducto(id, producto);
+    res.json({ success: true, data: actualizado });
 
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// 4. Registrar una venta
+// 4. Registrar venta
 const registrarVenta = async (req, res) => {
   try {
     const { id } = req.params;
     const { cantidad } = req.body;
 
-    const producto = await Producto.findById(id);
+    const producto = db.encontrarProducto(id);
     if (!producto) {
       return res.status(404).json({ success: false, message: 'Producto no encontrado' });
     }
 
-    producto.ventasRegistradas.push({ cantidad, fecha: new Date() });
+    if (!producto.ventasRegistradas) producto.ventasRegistradas = [];
+    producto.ventasRegistradas.push({ cantidad, fecha: new Date().toISOString() });
     producto.totalVendido = (producto.totalVendido || 0) + cantidad;
-    await producto.save();
 
+    db.actualizarProducto(id, producto);
     res.json({ success: true, message: 'Venta registrada', totalVendido: producto.totalVendido });
 
   } catch (error) {
@@ -160,19 +160,19 @@ const registrarVenta = async (req, res) => {
   }
 };
 
-// 5. Registrar preguntas (demanda)
+// 5. Registrar pregunta
 const registrarPregunta = async (req, res) => {
   try {
     const { id } = req.params;
     const { cantidad = 1 } = req.body;
 
-    const producto = await Producto.findById(id);
+    const producto = db.encontrarProducto(id);
     if (!producto) {
       return res.status(404).json({ success: false, message: 'Producto no encontrado' });
     }
 
     producto.preguntasRegistradas = (producto.preguntasRegistradas || 0) + cantidad;
-    await producto.save();
+    db.actualizarProducto(id, producto);
 
     res.json({ success: true, message: 'Preguntas registradas', totalPreguntas: producto.preguntasRegistradas });
 
