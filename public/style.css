@@ -383,6 +383,45 @@ small {
   color: var(--gold);
 }
 
+/* ===== TABLA DE PRODUCTOS EN FORMULARIO ===== */
+.productos-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.productos-table th {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 2px solid var(--border-color);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.productos-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+.productos-table input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+.productos-table input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.btn-remove-fila {
+  background: transparent;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px;
+}
+
 /* ===== FOOTER ===== */
 .footer {
   margin-top: auto;
@@ -419,6 +458,13 @@ small {
   }
   .header-actions {
     justify-content: flex-end;
+  }
+  .productos-table {
+    font-size: 0.75rem;
+  }
+  .productos-table input {
+    font-size: 0.75rem;
+    padding: 4px 6px;
   }
 }
 
