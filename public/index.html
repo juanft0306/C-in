@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>C🌍in · Importa y Vende</title>
-  <!-- Font Awesome para iconos -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -28,42 +27,21 @@
   <!-- MAIN CONTENT -->
   <main class="container">
 
-    <!-- SECCIÓN: NUEVO PRODUCTO (COSTEO) -->
+    <!-- SECCIÓN: NUEVO LOTE (varios productos) -->
     <section class="card" id="formSection">
       <div class="card-header">
-        <h2><i class="fas fa-calculator"></i> Costeo y creación de producto</h2>
-        <span class="badge">Nuevo</span>
+        <h2><i class="fas fa-boxes"></i> Registrar lote de productos</h2>
+        <span class="badge">Múltiples productos</span>
       </div>
-      <form id="productForm">
-        <div class="form-row">
-          <div class="form-group">
-            <label><i class="fas fa-tag"></i> Nombre *</label>
-            <input type="text" id="nombre" placeholder="Ej: Cargador USB-C" required />
-          </div>
-          <div class="form-group">
-            <label><i class="fas fa-barcode"></i> SKU *</label>
-            <input type="text" id="sku" placeholder="Código único" required />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label><i class="fas fa-dollar-sign"></i> Precio unitario (China) *</label>
-            <input type="number" id="precioUnitario" step="0.01" placeholder="1.20" required />
-          </div>
-          <div class="form-group">
-            <label><i class="fas fa-boxes"></i> Cantidad importada *</label>
-            <input type="number" id="cantidad" step="1" placeholder="200" required />
-          </div>
-        </div>
-
+      <form id="loteForm">
+        <!-- Datos comunes del lote -->
         <div class="form-row">
           <div class="form-group">
             <label><i class="fas fa-ship"></i> Flete internacional (USD)</label>
             <input type="number" id="flete" step="0.01" placeholder="80" value="0" />
           </div>
           <div class="form-group" style="flex:2;">
-            <label><i class="fas fa-plus-circle"></i> Gastos extra (clic en +)</label>
+            <label><i class="fas fa-plus-circle"></i> Gastos extra (compartidos)</label>
             <div class="extra-gastos-container">
               <div id="gastosWrapper">
                 <div class="gasto-item">
@@ -77,9 +55,38 @@
           </div>
         </div>
 
-        <div class="form-row">
+        <!-- Tabla de productos -->
+        <div style="margin-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="font-size:1.1rem;"><i class="fas fa-list"></i> Productos del lote</h3>
+            <button type="button" class="btn btn-small" id="addProductoBtn"><i class="fas fa-plus"></i> Agregar producto</button>
+          </div>
+          <div id="productosTableWrapper">
+            <table class="productos-table" id="productosTable">
+              <thead>
+                <tr>
+                  <th>Nombre *</th>
+                  <th>SKU *</th>
+                  <th>Precio Unit. (USD) *</th>
+                  <th>Cantidad *</th>
+                  <th>Color / Tamaño</th>
+                  <th style="width:40px;"></th>
+                </tr>
+              </thead>
+              <tbody id="productosBody">
+                <!-- Las filas se agregan dinámicamente -->
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px; font-size:0.85rem; color:var(--text-secondary);">
+            <i class="fas fa-info-circle"></i> Los gastos comunes se prorratean proporcionalmente al valor de compra de cada producto.
+          </div>
+        </div>
+
+        <!-- Precios de venta (se aplica a todos los productos del lote) -->
+        <div class="form-row" style="margin-top:20px; border-top:1px solid var(--border-color); padding-top:20px;">
           <div class="form-group">
-            <label><i class="fas fa-percent"></i> Modo de precio</label>
+            <label><i class="fas fa-percent"></i> Modo de precio (para todos)</label>
             <select id="modoPrecio">
               <option value="porcentaje">Porcentaje de ganancia</option>
               <option value="gananciaFija">Ganancia fija en USD</option>
@@ -94,7 +101,7 @@
         </div>
 
         <div class="form-actions">
-          <button type="submit" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Crear producto y costear</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar lote</button>
         </div>
       </form>
     </section>
@@ -108,7 +115,7 @@
       <div id="productList">
         <div class="empty-state">
           <i class="fas fa-box-open"></i>
-          <p>No hay productos aún. Crea tu primer producto arriba.</p>
+          <p>No hay productos aún. Crea tu primer lote arriba.</p>
         </div>
       </div>
     </section>
@@ -125,4 +132,4 @@
   <!-- SCRIPT -->
   <script src="script.js"></script>
 </body>
-  </html>
+</html>
