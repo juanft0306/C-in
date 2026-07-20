@@ -1,16 +1,14 @@
 // ==========================================
-//  C🌍in - UI (carga dinámica de pantallas)
+//  C🌍in - UI (DOM, eventos, renderizado)
 // ==========================================
 
-// ----- Variables globales -----
-let currentTab = 'registro';
-let filtroActual = 'todos';
-let productoRowIndex = 0;
-let gastoIndex = 0;
-
-// Referencias a elementos DOM (se actualizan al cargar cada pantalla)
+// ----- Variables globales (referencias DOM) -----
 let loteForm, productosBody, addProductoBtn, addGastoBtn, gastosWrapper;
 let productList, productCount;
+let gastoIndex = 0;
+let productoRowIndex = 0;
+let filtroActual = 'todos';
+let currentTab = 'registro';
 
 // ==========================================
 //  NAVEGACIÓN ENTRE PANTALLAS
@@ -23,8 +21,14 @@ function cambiarPantalla(tab) {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
 
-  // Cargar el HTML correspondiente
-  const archivo = tab === 'registro' ? 'registro.html' : 'recomendaciones.html';
+  // Mapeo de pestañas a archivos HTML
+  const archivos = {
+    registro: 'registro.html',
+    recomendaciones: 'recomendaciones.html',
+    inventario: 'inventario.html'
+  };
+
+  const archivo = archivos[tab] || 'registro.html';
   
   fetch(archivo)
     .then(response => {
@@ -35,10 +39,16 @@ function cambiarPantalla(tab) {
       document.getElementById('mainContainer').innerHTML = html;
       
       // Inicializar la UI según la pestaña
-      if (tab === 'registro') {
-        inicializarRegistro();
-      } else {
-        inicializarRecomendaciones();
+      switch (tab) {
+        case 'registro':
+          inicializarRegistro();
+          break;
+        case 'recomendaciones':
+          inicializarRecomendaciones();
+          break;
+        case 'inventario':
+          inicializarInventario();
+          break;
       }
     })
     .catch(error => {
@@ -46,72 +56,11 @@ function cambiarPantalla(tab) {
         <div style="text-align:center; padding:40px; color:#e74c3c;">
           <i class="fas fa-exclamation-triangle" style="font-size:2rem;"></i>
           <p>Error al cargar ${archivo}: ${error.message}</p>
+          <p>Verifica que el archivo exista en la carpeta public.</p>
         </div>
       `;
       console.error(error);
     });
-}
-
-// ==========================================
-//  INICIALIZAR PANTALLA DE REGISTRO
-// ==========================================
-function inicializarRegistro() {
-  // Obtener referencias
-  loteForm = document.getElementById('loteForm');
-  productosBody = document.getElementById('productosBody');
-  addProductoBtn = document.getElementById('addProductoBtn');
-  addGastoBtn = document.getElementById('addGastoBtn');
-  gastosWrapper = document.getElementById('gastosWrapper');
-
-  if (!loteForm || !productosBody) {
-    console.error('❌ Error: No se encontraron elementos en registro.html');
-    return;
-  }
-
-  // Limpiar e inicializar
-  productosBody.innerHTML = '';
-  productoRowIndex = 0;
-  agregarFilaProducto();
-  agregarFilaProducto();
-
-  gastosWrapper.innerHTML = '';
-  gastoIndex = 0;
-  agregarGasto();
-
-  // Configurar eventos
-  configurarEventosRegistro();
-
-  console.log('✅ Pantalla de registro inicializada');
-}
-
-// ==========================================
-//  INICIALIZAR PANTALLA DE RECOMENDACIONES
-// ==========================================
-function inicializarRecomendaciones() {
-  // Obtener referencias
-  productList = document.getElementById('productList');
-  productCount = document.getElementById('productCount');
-
-  if (!productList) {
-    console.error('❌ Error: No se encontraron elementos en recomendaciones.html');
-    return;
-  }
-
-  // Configurar filtros
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      this.classList.add('active');
-      filtroActual = this.dataset.filter;
-      renderizarProductos();
-    });
-  });
-
-  // Cargar datos y renderizar
-  window.cargarDatos();
-  renderizarProductos();
-
-  console.log('✅ Pantalla de recomendaciones inicializada');
 }
 
 // ==========================================
@@ -221,104 +170,37 @@ function obtenerProductosFormulario() {
 }
 
 // ==========================================
-//  RENDERIZAR LISTA DE PRODUCTOS (con filtros)
+//  PANTALLA DE REGISTRO
 // ==========================================
-function renderizarProductos() {
-  const productos = window.productos;
-  if (!productList) return;
+function inicializarRegistro() {
+  loteForm = document.getElementById('loteForm');
+  productosBody = document.getElementById('productosBody');
+  addProductoBtn = document.getElementById('addProductoBtn');
+  addGastoBtn = document.getElementById('addGastoBtn');
+  gastosWrapper = document.getElementById('gastosWrapper');
 
-  // Aplicar filtro
-  let productosFiltrados = productos;
-  if (filtroActual === 'traer-mas') {
-    productosFiltrados = productos.filter(p => {
-      const prioridad = calcularPrioridad(p);
-      return prioridad.recomendacion.includes('TRAER MÁS');
-    });
-  } else if (filtroActual === 'mantener') {
-    productosFiltrados = productos.filter(p => {
-      const prioridad = calcularPrioridad(p);
-      return prioridad.recomendacion.includes('MANTENER');
-    });
-  } else if (filtroActual === 'dejar') {
-    productosFiltrados = productos.filter(p => {
-      const prioridad = calcularPrioridad(p);
-      return prioridad.recomendacion.includes('DEJAR');
-    });
-  }
-
-  if (productosFiltrados.length === 0) {
-    productList.innerHTML = `
-      <div class="empty-state">
-        <i class="fas fa-box-open"></i>
-        <p>${productos.length === 0 ? 'No hay productos aún. Ve a la pestaña "Registro" para crear tu primer lote.' : 'No hay productos con este filtro.'}</p>
-      </div>
-    `;
-    if (productCount) productCount.textContent = '0 productos';
+  if (!loteForm || !productosBody) {
+    console.error('❌ Error: No se encontraron elementos en registro.html');
     return;
   }
 
-  let html = '';
-  productosFiltrados.forEach(p => {
-    const prioridad = calcularPrioridad(p);
-    const precioData = window.calcularPrecioVenta(p.costoUnitarioTotal, 'porcentaje', p.margenGanancia || 40);
-    const emoji = window.getEmojiRecomendacion(prioridad.recomendacion);
-    const colorPrioridad = prioridad.indice > 70 ? '#2ecc71' : (prioridad.indice > 40 ? '#f1c40f' : '#e74c3c');
+  // Inicializar productos
+  productosBody.innerHTML = '';
+  productoRowIndex = 0;
+  agregarFilaProducto();
+  agregarFilaProducto();
 
-    html += `
-      <div class="product-item" data-id="${p.id}">
-        <div class="product-header">
-          <h3>
-            ${emoji} ${p.nombre}
-            <span class="sku">SKU: ${p.sku}</span>
-            ${p.atributo ? `<span style="font-size:0.8rem;color:var(--text-secondary);">(${p.atributo})</span>` : ''}
-          </h3>
-          <span class="recomendacion" style="color:${colorPrioridad};">
-            ${prioridad.recomendacion} (${prioridad.indice} pts)
-          </span>
-        </div>
-        <div class="metric"><span class="label">💰 Costo unitario</span><span class="value">${window.formatearUSD(p.costoUnitarioTotal)}</span></div>
-        <div class="metric"><span class="label">🏷️ Precio venta</span><span class="value">${window.formatearUSD(precioData.precioVenta)} <span class="small">(${p.margenGanancia}% margen)</span></span></div>
-        <div class="metric"><span class="label">📦 Rotación mensual</span><span class="value">${calcularRotacion(p).toFixed(1)} <span class="small">und/mes</span></span></div>
-        <div class="metric"><span class="label">📱 Engagement promedio</span><span class="value">${window.calcularEngagementPromedio(p.interacciones || {}).toFixed(2)}%</span></div>
-        <div class="metric"><span class="label">🗣️ Tasa conversión</span><span class="value">${calcularTasaConversion(p).toFixed(1)}%</span></div>
-        <div class="metric"><span class="label">📊 Prioridad</span><span class="value" style="color:${colorPrioridad};">${prioridad.indice}/100</span></div>
-        <div class="product-actions">
-          <button class="btn-small" onclick="window.registrarVenta('${p.id}')"><i class="fas fa-shopping-cart"></i> Vender</button>
-          <button class="btn-small" onclick="window.registrarPregunta('${p.id}')"><i class="fas fa-question-circle"></i> Preguntaron</button>
-          <button class="btn-small" onclick="window.actualizarRedes('${p.id}')"><i class="fas fa-share-alt"></i> Redes</button>
-          <button class="btn-small" onclick="window.eliminarProducto('${p.id}')" style="color:#e74c3c;"><i class="fas fa-trash"></i></button>
-        </div>
-      </div>
-    `;
-  });
+  // Inicializar gastos
+  gastosWrapper.innerHTML = '';
+  gastoIndex = 0;
+  agregarGasto();
 
-  productList.innerHTML = html;
-  if (productCount) productCount.textContent = productosFiltrados.length + ' productos';
+  // Configurar eventos
+  configurarEventosRegistro();
+
+  console.log('✅ Pantalla de registro inicializada');
 }
 
-// ==========================================
-//  FUNCIONES DE CÁLCULO PARA RECOMENDACIONES
-// ==========================================
-function calcularRotacion(p) {
-  const dias = Math.max(1, (Date.now() - new Date(p.fechaLlegada).getTime()) / (1000 * 60 * 60 * 24));
-  return (p.totalVendido || 0) / dias * 30;
-}
-
-function calcularTasaConversion(p) {
-  const preguntas = p.preguntasRegistradas || 1;
-  return ((p.totalVendido || 0) / preguntas) * 100;
-}
-
-function calcularPrioridad(p) {
-  const rotacion = calcularRotacion(p);
-  const engagement = window.calcularEngagementPromedio(p.interacciones || {});
-  const tasaConversion = calcularTasaConversion(p);
-  return window.calcularIndicePrioridad(p.costoUnitarioTotal, rotacion, engagement, tasaConversion);
-}
-
-// ==========================================
-//  CONFIGURAR EVENTOS DE REGISTRO
-// ==========================================
 function configurarEventosRegistro() {
   // Envío del formulario
   loteForm.addEventListener('submit', (e) => {
@@ -408,16 +290,280 @@ function configurarEventosRegistro() {
     alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
   });
 
-  // Botón agregar gasto
   addGastoBtn.addEventListener('click', () => agregarGasto());
-
-  // Botón agregar producto
   addProductoBtn.addEventListener('click', () => agregarFilaProducto());
+}
+
+// ==========================================
+//  PANTALLA DE RECOMENDACIONES
+// ==========================================
+function inicializarRecomendaciones() {
+  productList = document.getElementById('productList');
+  productCount = document.getElementById('productCount');
+
+  if (!productList) {
+    console.error('❌ Error: No se encontraron elementos en recomendaciones.html');
+    return;
+  }
+
+  // Configurar filtros
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      filtroActual = this.dataset.filter;
+      renderizarRecomendaciones();
+    });
+  });
+
+  renderizarRecomendaciones();
+  console.log('✅ Pantalla de recomendaciones inicializada');
+}
+
+function renderizarRecomendaciones() {
+  const productos = window.productos;
+  if (!productList) return;
+
+  let productosFiltrados = productos;
+  if (filtroActual === 'traer-mas') {
+    productosFiltrados = productos.filter(p => {
+      const prioridad = calcularPrioridad(p);
+      return prioridad.recomendacion.includes('TRAER MÁS');
+    });
+  } else if (filtroActual === 'mantener') {
+    productosFiltrados = productos.filter(p => {
+      const prioridad = calcularPrioridad(p);
+      return prioridad.recomendacion.includes('MANTENER');
+    });
+  } else if (filtroActual === 'dejar') {
+    productosFiltrados = productos.filter(p => {
+      const prioridad = calcularPrioridad(p);
+      return prioridad.recomendacion.includes('DEJAR');
+    });
+  }
+
+  if (productosFiltrados.length === 0) {
+    productList.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-box-open"></i>
+        <p>${productos.length === 0 ? 'No hay productos aún. Ve a la pestaña "Registro" para crear tu primer lote.' : 'No hay productos con este filtro.'}</p>
+      </div>
+    `;
+    if (productCount) productCount.textContent = '0 productos';
+    return;
+  }
+
+  let html = '';
+  productosFiltrados.forEach(p => {
+    const prioridad = calcularPrioridad(p);
+    const precioData = window.calcularPrecioVenta(p.costoUnitarioTotal, 'porcentaje', p.margenGanancia || 40);
+    const emoji = window.getEmojiRecomendacion(prioridad.recomendacion);
+    const colorPrioridad = prioridad.indice > 70 ? '#2ecc71' : (prioridad.indice > 40 ? '#f1c40f' : '#e74c3c');
+
+    html += `
+      <div class="product-item" data-id="${p.id}">
+        <div class="product-header">
+          <h3>
+            ${emoji} ${p.nombre}
+            <span class="sku">SKU: ${p.sku}</span>
+            ${p.atributo ? `<span style="font-size:0.8rem;color:var(--text-secondary);">(${p.atributo})</span>` : ''}
+          </h3>
+          <span class="recomendacion" style="color:${colorPrioridad};">
+            ${prioridad.recomendacion} (${prioridad.indice} pts)
+          </span>
+        </div>
+        <div class="metric"><span class="label">💰 Costo unitario</span><span class="value">${window.formatearUSD(p.costoUnitarioTotal)}</span></div>
+        <div class="metric"><span class="label">🏷️ Precio venta</span><span class="value">${window.formatearUSD(precioData.precioVenta)} <span class="small">(${p.margenGanancia}% margen)</span></span></div>
+        <div class="metric"><span class="label">📦 Rotación mensual</span><span class="value">${calcularRotacion(p).toFixed(1)} <span class="small">und/mes</span></span></div>
+        <div class="metric"><span class="label">📱 Engagement promedio</span><span class="value">${window.calcularEngagementPromedio(p.interacciones || {}).toFixed(2)}%</span></div>
+        <div class="metric"><span class="label">🗣️ Tasa conversión</span><span class="value">${calcularTasaConversion(p).toFixed(1)}%</span></div>
+        <div class="metric"><span class="label">📊 Prioridad</span><span class="value" style="color:${colorPrioridad};">${prioridad.indice}/100</span></div>
+        <div class="product-actions">
+          <button class="btn-small" onclick="window.registrarVenta('${p.id}')"><i class="fas fa-shopping-cart"></i> Vender</button>
+          <button class="btn-small" onclick="window.registrarPregunta('${p.id}')"><i class="fas fa-question-circle"></i> Preguntaron</button>
+          <button class="btn-small" onclick="window.actualizarRedes('${p.id}')"><i class="fas fa-share-alt"></i> Redes</button>
+          <button class="btn-small" onclick="window.eliminarProducto('${p.id}')" style="color:#e74c3c;"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    `;
+  });
+
+  productList.innerHTML = html;
+  if (productCount) productCount.textContent = productosFiltrados.length + ' productos';
+}
+
+// ==========================================
+//  PANTALLA DE INVENTARIO
+// ==========================================
+function inicializarInventario() {
+  const inventarioContainer = document.getElementById('inventarioContainer');
+  const stockCount = document.getElementById('stockCount');
+  const valorTotal = document.getElementById('valorTotal');
+  const totalProductos = document.getElementById('totalProductos');
+
+  if (!inventarioContainer) {
+    console.error('❌ Error: No se encontraron elementos en inventario.html');
+    return;
+  }
+
+  renderizarInventario();
+  console.log('✅ Pantalla de inventario inicializada');
+}
+
+function renderizarInventario() {
+  const inventarioContainer = document.getElementById('inventarioContainer');
+  const stockCount = document.getElementById('stockCount');
+  const valorTotal = document.getElementById('valorTotal');
+  const totalProductos = document.getElementById('totalProductos');
+
+  if (!inventarioContainer) return;
+
+  const productos = window.productos;
+  if (productos.length === 0) {
+    inventarioContainer.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-boxes"></i>
+        <p>No hay productos en el inventario.</p>
+      </div>
+    `;
+    if (stockCount) stockCount.textContent = '0 unidades';
+    if (valorTotal) valorTotal.textContent = '$0.00';
+    if (totalProductos) totalProductos.textContent = '0';
+    return;
+  }
+
+  // Agrupar por SKU
+  const inventarioPorSKU = {};
+  productos.forEach(p => {
+    const sku = p.sku;
+    if (!inventarioPorSKU[sku]) {
+      inventarioPorSKU[sku] = {
+        sku: sku,
+        nombre: p.nombre,
+        atributo: p.atributo || '',
+        lotes: [],
+        cantidadTotal: 0,
+        costoTotal: 0
+      };
+    }
+    const grupo = inventarioPorSKU[sku];
+    grupo.lotes.push({
+      id: p.id,
+      loteId: p.loteId,
+      cantidad: p.cantidadImportada,
+      vendido: p.totalVendido || 0,
+      stock: p.cantidadImportada - (p.totalVendido || 0),
+      costoUnitario: p.costoUnitarioTotal,
+      precioVenta: p.precioVentaSugerido,
+      fechaLlegada: p.fechaLlegada
+    });
+    grupo.cantidadTotal += p.cantidadImportada;
+    grupo.costoTotal += p.cantidadImportada * p.costoUnitarioTotal;
+    if (p.atributo && !grupo.nombre.includes(p.atributo)) {
+      grupo.nombre = p.nombre + ' (' + p.atributo + ')';
+    }
+  });
+
+  // Calcular stock total y valor total
+  let stockTotal = 0;
+  let valorTotalInventario = 0;
+  Object.values(inventarioPorSKU).forEach(grupo => {
+    grupo.lotes.forEach(lote => {
+      stockTotal += lote.stock;
+      valorTotalInventario += lote.stock * lote.costoUnitario;
+    });
+  });
+
+  if (stockCount) stockCount.textContent = stockTotal + ' unidades';
+  if (valorTotal) valorTotal.textContent = window.formatearUSD(valorTotalInventario);
+  if (totalProductos) totalProductos.textContent = Object.keys(inventarioPorSKU).length;
+
+  // Generar HTML
+  let html = '';
+  Object.values(inventarioPorSKU).forEach(grupo => {
+    const stockSKU = grupo.lotes.reduce((sum, l) => sum + l.stock, 0);
+    const costoPromedio = grupo.costoTotal / grupo.cantidadTotal;
+
+    html += `
+      <div class="inventario-item">
+        <div class="inventario-header">
+          <h3>
+            <span class="sku-badge">${grupo.sku}</span>
+            ${grupo.nombre}
+          </h3>
+          <div class="inventario-resumen">
+            <span class="badge">Stock: ${stockSKU} und</span>
+            <span class="badge">Costo prom: ${window.formatearUSD(costoPromedio)}</span>
+            <span class="badge">Valor: ${window.formatearUSD(stockSKU * costoPromedio)}</span>
+          </div>
+        </div>
+        <div class="inventario-lotes">
+          <table class="lotes-table">
+            <thead>
+              <tr>
+                <th>Lote</th>
+                <th>Fecha</th>
+                <th>Comprados</th>
+                <th>Vendidos</th>
+                <th>Stock</th>
+                <th>Costo unit.</th>
+                <th>Valor stock</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    grupo.lotes.forEach(lote => {
+      const valorStock = lote.stock * lote.costoUnitario;
+      const fecha = new Date(lote.fechaLlegada).toLocaleDateString('es-ES');
+      html += `
+        <tr>
+          <td><span class="lote-id">${lote.loteId.substring(0, 8)}</span></td>
+          <td>${fecha}</td>
+          <td>${lote.cantidad}</td>
+          <td>${lote.vendido}</td>
+          <td><strong>${lote.stock}</strong></td>
+          <td>${window.formatearUSD(lote.costoUnitario)}</td>
+          <td>${window.formatearUSD(valorStock)}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  });
+
+  inventarioContainer.innerHTML = html;
+}
+
+// ==========================================
+//  FUNCIONES DE CÁLCULO PARA RECOMENDACIONES E INVENTARIO
+// ==========================================
+function calcularRotacion(p) {
+  const dias = Math.max(1, (Date.now() - new Date(p.fechaLlegada).getTime()) / (1000 * 60 * 60 * 24));
+  return (p.totalVendido || 0) / dias * 30;
+}
+
+function calcularTasaConversion(p) {
+  const preguntas = p.preguntasRegistradas || 1;
+  return ((p.totalVendido || 0) / preguntas) * 100;
+}
+
+function calcularPrioridad(p) {
+  const rotacion = calcularRotacion(p);
+  const engagement = window.calcularEngagementPromedio(p.interacciones || {});
+  const tasaConversion = calcularTasaConversion(p);
+  return window.calcularIndicePrioridad(p.costoUnitarioTotal, rotacion, engagement, tasaConversion);
 }
 
 // ==========================================
 //  ACCIONES RÁPIDAS (ventas, preguntas, redes, eliminar)
 // ==========================================
+
 window.registrarVenta = function(id) {
   const cantidad = prompt('¿Cuántas unidades se vendieron?', '1');
   if (cantidad === null) return;
@@ -428,7 +574,12 @@ window.registrarVenta = function(id) {
   prod.ventasRegistradas = prod.ventasRegistradas || [];
   prod.ventasRegistradas.push({ cantidad: cant, fecha: new Date().toISOString() });
   window.guardarProductos();
-  if (currentTab === 'recomendaciones') renderizarProductos();
+  
+  // Actualizar según la pestaña actual
+  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+  else if (currentTab === 'inventario') renderizarInventario();
+  
   alert(`✅ Venta registrada. Total vendido: ${prod.totalVendido} unidades.`);
 };
 
@@ -440,7 +591,11 @@ window.registrarPregunta = function(id) {
   const cant = parseInt(cantidad) || 1;
   prod.preguntasRegistradas = (prod.preguntasRegistradas || 0) + cant;
   window.guardarProductos();
-  if (currentTab === 'recomendaciones') renderizarProductos();
+  
+  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+  else if (currentTab === 'inventario') renderizarInventario();
+  
   alert(`✅ Preguntas registradas. Total: ${prod.preguntasRegistradas}.`);
 };
 
@@ -470,7 +625,11 @@ window.actualizarRedes = function(id) {
     marketplace: { likes: parseInt(mktLikes)||0, comentarios: parseInt(mktCom)||0, compartidos: parseInt(mktShare)||0, alcance: parseInt(mktAlc)||100 }
   };
   window.guardarProductos();
-  if (currentTab === 'recomendaciones') renderizarProductos();
+  
+  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+  else if (currentTab === 'inventario') renderizarInventario();
+  
   alert('✅ Métricas de redes actualizadas correctamente.');
 };
 
@@ -478,12 +637,37 @@ window.eliminarProducto = function(id) {
   if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
   window.productos = window.productos.filter(p => p.id !== id);
   window.guardarProductos();
-  if (currentTab === 'recomendaciones') renderizarProductos();
+  
+  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+  else if (currentTab === 'inventario') renderizarInventario();
 };
+
+// ==========================================
+//  FUNCIONES DE CÁLCULO PARA RECOMENDACIONES E INVENTARIO
+// ==========================================
+
+function calcularRotacion(p) {
+  const dias = Math.max(1, (Date.now() - new Date(p.fechaLlegada).getTime()) / (1000 * 60 * 60 * 24));
+  return (p.totalVendido || 0) / dias * 30;
+}
+
+function calcularTasaConversion(p) {
+  const preguntas = p.preguntasRegistradas || 1;
+  return ((p.totalVendido || 0) / preguntas) * 100;
+}
+
+function calcularPrioridad(p) {
+  const rotacion = calcularRotacion(p);
+  const engagement = window.calcularEngagementPromedio(p.interacciones || {});
+  const tasaConversion = calcularTasaConversion(p);
+  return window.calcularIndicePrioridad(p.costoUnitarioTotal, rotacion, engagement, tasaConversion);
+}
 
 // ==========================================
 //  INICIALIZACIÓN GENERAL
 // ==========================================
+
 document.addEventListener('DOMContentLoaded', function() {
   // Cargar datos
   window.cargarDatos();
@@ -498,7 +682,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Botón refrescar (header)
   document.getElementById('btnRefresh').addEventListener('click', () => {
     window.cargarDatos();
-    if (currentTab === 'recomendaciones') renderizarProductos();
+    const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+    if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+    else if (currentTab === 'inventario') renderizarInventario();
     alert('✅ Datos actualizados desde localStorage.');
   });
 
