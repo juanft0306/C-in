@@ -1,0 +1,25 @@
+<!-- ========================================== -->
+<!-- PANTALLA: RECOMENDACIONES                   -->
+<!-- ========================================== -->
+
+<div class="card">
+  <div class="card-header">
+    <h2><i class="fas fa-chart-line"></i> Panel de recomendaciones</h2>
+    <span class="badge" id="productCount">0 productos</span>
+  </div>
+
+  <!-- Filtros rápidos -->
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
+    <button class="btn btn-small filter-btn active" data-filter="todos">Todos</button>
+    <button class="btn btn-small filter-btn" data-filter="traer-mas">🟢 Traer más</button>
+    <button class="btn btn-small filter-btn" data-filter="mantener">🟡 Mantener</button>
+    <button class="btn btn-small filter-btn" data-filter="dejar">🔴 Dejar de traer</button>
+  </div>
+
+  <div id="productList">
+    <div class="empty-state">
+      <i class="fas fa-box-open"></i>
+      <p>No hay productos aún. Ve a la pestaña "Registro" para crear tu primer lote.</p>
+    </div>
+  </div>
+</div>
