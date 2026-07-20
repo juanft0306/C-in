@@ -2,21 +2,14 @@
 //  C🌍in - UI (DOM, eventos, renderizado)
 // ==========================================
 
-// ----- DOM References -----
-const loteForm = document.getElementById('loteForm');
-const productosBody = document.getElementById('productosBody');
-const addProductoBtn = document.getElementById('addProductoBtn');
-const addGastoBtn = document.getElementById('addGastoBtn');
-const gastosWrapper = document.getElementById('gastosWrapper');
-const productList = document.getElementById('productList');
-const productCount = document.getElementById('productCount');
-const btnRefresh = document.getElementById('btnRefresh');
+// ----- Variables globales (referencias a elementos del DOM) -----
+let loteForm, productosBody, addProductoBtn, addGastoBtn, gastosWrapper, productList, productCount, btnRefresh;
+let gastoIndex = 0;
+let productoRowIndex = 0;
 
 // ==========================================
 //  GASTOS EXTRA - DINÁMICOS
 // ==========================================
-let gastoIndex = 0;
-
 function agregarGasto(concepto = '', monto = '') {
   gastoIndex++;
   const div = document.createElement('div');
@@ -38,17 +31,13 @@ function agregarGasto(concepto = '', monto = '') {
 
 function actualizarVisibilidadEliminarGasto() {
   const items = gastosWrapper.querySelectorAll('.gasto-item');
-  items.forEach((item, idx) => {
+  items.forEach((item) => {
     const btn = item.querySelector('.btn-remove-gasto');
     if (btn) {
       btn.style.display = items.length > 1 ? 'inline-flex' : 'none';
     }
   });
 }
-
-addGastoBtn.addEventListener('click', () => agregarGasto());
-// Inicializar con un gasto vacío
-agregarGasto();
 
 function obtenerGastos() {
   const items = gastosWrapper.querySelectorAll('.gasto-item');
@@ -66,8 +55,6 @@ function obtenerGastos() {
 // ==========================================
 //  PRODUCTOS DINÁMICOS EN EL FORMULARIO
 // ==========================================
-let productoRowIndex = 0;
-
 function agregarFilaProducto(nombre = '', sku = '', precio = '', cantidad = '', atributo = '') {
   productoRowIndex++;
   const tr = document.createElement('tr');
@@ -86,12 +73,6 @@ function agregarFilaProducto(nombre = '', sku = '', precio = '', cantidad = '', 
   });
   productosBody.appendChild(tr);
 }
-
-addProductoBtn.addEventListener('click', () => agregarFilaProducto());
-
-// Agregar 2 filas iniciales vacías
-agregarFilaProducto();
-agregarFilaProducto();
 
 function obtenerProductosFormulario() {
   const rows = productosBody.querySelectorAll('tr');
@@ -261,106 +242,163 @@ window.eliminarProducto = function(id) {
 };
 
 // ==========================================
-//  ENVIAR FORMULARIO (guardar lote)
+//  CONFIGURAR EVENTOS DEL FORMULARIO
 // ==========================================
-loteForm.addEventListener('submit', (e) => {
-  e.preventDefault();
+function configurarEventos() {
+  // Evento de envío del formulario
+  loteForm.addEventListener('submit', (e) => {
+    e.preventDefault();
 
-  const flete = parseFloat(document.getElementById('flete').value) || 0;
-  const gastosExtra = obtenerGastos();
-  const productosData = obtenerProductosFormulario();
+    const flete = parseFloat(document.getElementById('flete').value) || 0;
+    const gastosExtra = obtenerGastos();
+    const productosData = obtenerProductosFormulario();
 
-  if (productosData.length === 0) {
-    alert('⚠️ Debes agregar al menos un producto válido.');
-    return;
-  }
+    if (productosData.length === 0) {
+      alert('⚠️ Debes agregar al menos un producto válido.');
+      return;
+    }
 
-  const modoPrecio = document.getElementById('modoPrecio').value;
-  const valorPrecio = parseFloat(document.getElementById('valorPrecio').value) || 0;
+    const modoPrecio = document.getElementById('modoPrecio').value;
+    const valorPrecio = parseFloat(document.getElementById('valorPrecio').value) || 0;
 
-  let valorTotalLote = 0;
-  productosData.forEach(p => {
-    valorTotalLote += p.precio * p.cantidad;
-  });
+    let valorTotalLote = 0;
+    productosData.forEach(p => {
+      valorTotalLote += p.precio * p.cantidad;
+    });
 
-  if (valorTotalLote === 0) {
-    alert('⚠️ El valor total del lote no puede ser cero.');
-    return;
-  }
+    if (valorTotalLote === 0) {
+      alert('⚠️ El valor total del lote no puede ser cero.');
+      return;
+    }
 
-  const nuevosProductos = [];
-  const loteId = window.generarId();
-  const fechaLlegada = new Date().toISOString();
+    const nuevosProductos = [];
+    const loteId = window.generarId();
+    const fechaLlegada = new Date().toISOString();
 
-  productosData.forEach(p => {
-    const valorProducto = p.precio * p.cantidad;
-    const costoUnitario = window.calcularCostoUnitario(
-      p.precio,
-      p.cantidad,
+    productosData.forEach(p => {
+      const valorProducto = p.precio * p.cantidad;
+      const costoUnitario = window.calcularCostoUnitario(
+        p.precio,
+        p.cantidad,
+        flete,
+        gastosExtra,
+        valorTotalLote,
+        valorProducto
+      );
+      const precioData = window.calcularPrecioVenta(costoUnitario, modoPrecio, valorPrecio);
+
+      const producto = {
+        id: window.generarId(),
+        loteId: loteId,
+        nombre: p.nombre,
+        sku: p.sku,
+        atributo: p.atributo || '',
+        precioUnitarioChina: p.precio,
+        cantidadImportada: p.cantidad,
+        fleteInternacional: flete,
+        gastosExtra: gastosExtra,
+        costoUnitarioTotal: costoUnitario,
+        precioVentaSugerido: precioData.precioVenta,
+        margenGanancia: precioData.margenGanancia,
+        fechaLlegada: fechaLlegada,
+        interacciones: { instagram: {}, tiktok: {}, marketplace: {} },
+        ventasRegistradas: [],
+        totalVendido: 0,
+        preguntasRegistradas: 0
+      };
+      nuevosProductos.push(producto);
+    });
+
+    window.guardarLote({
+      id: loteId,
+      fecha: fechaLlegada,
       flete,
       gastosExtra,
-      valorTotalLote,
-      valorProducto
-    );
-    const precioData = window.calcularPrecioVenta(costoUnitario, modoPrecio, valorPrecio);
+      productos: nuevosProductos.map(p => p.id)
+    });
 
-    const producto = {
-      id: window.generarId(),
-      loteId: loteId,
-      nombre: p.nombre,
-      sku: p.sku,
-      atributo: p.atributo || '',
-      precioUnitarioChina: p.precio,
-      cantidadImportada: p.cantidad,
-      fleteInternacional: flete,
-      gastosExtra: gastosExtra,
-      costoUnitarioTotal: costoUnitario,
-      precioVentaSugerido: precioData.precioVenta,
-      margenGanancia: precioData.margenGanancia,
-      fechaLlegada: fechaLlegada,
-      interacciones: { instagram: {}, tiktok: {}, marketplace: {} },
-      ventasRegistradas: [],
-      totalVendido: 0,
-      preguntasRegistradas: 0
-    };
-    nuevosProductos.push(producto);
+    window.productos = window.productos.concat(nuevosProductos);
+    window.guardarProductos();
+    renderizarProductos();
+
+    // Resetear formulario
+    productosBody.innerHTML = '';
+    agregarFilaProducto();
+    agregarFilaProducto();
+    document.getElementById('flete').value = '0';
+    gastosWrapper.innerHTML = '';
+    agregarGasto();
+    document.getElementById('modoPrecio').value = 'porcentaje';
+    document.getElementById('valorPrecio').value = '40';
+
+    alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
   });
 
-  window.guardarLote({
-    id: loteId,
-    fecha: fechaLlegada,
-    flete,
-    gastosExtra,
-    productos: nuevosProductos.map(p => p.id)
+  // Botón agregar gasto
+  addGastoBtn.addEventListener('click', () => agregarGasto());
+
+  // Botón agregar producto
+  addProductoBtn.addEventListener('click', () => agregarFilaProducto());
+
+  // Botón refrescar (desde el header)
+  btnRefresh.addEventListener('click', () => {
+    window.cargarDatos();
+    renderizarProductos();
   });
+}
 
-  window.productos = window.productos.concat(nuevosProductos);
-  window.guardarProductos();
-  renderizarProductos();
+// ==========================================
+//  INICIALIZACIÓN (se llama después de cargar main.html)
+// ==========================================
+function iniciarUI() {
+  // Obtener referencias a los elementos del DOM (ya deben existir)
+  loteForm = document.getElementById('loteForm');
+  productosBody = document.getElementById('productosBody');
+  addProductoBtn = document.getElementById('addProductoBtn');
+  addGastoBtn = document.getElementById('addGastoBtn');
+  gastosWrapper = document.getElementById('gastosWrapper');
+  productList = document.getElementById('productList');
+  productCount = document.getElementById('productCount');
+  btnRefresh = document.getElementById('btnRefresh');
 
-  // Resetear formulario
+  // Verificar que todos los elementos existan
+  if (!loteForm || !productosBody || !addProductoBtn || !addGastoBtn || !gastosWrapper || !productList || !productCount || !btnRefresh) {
+    console.error('❌ Error: No se encontraron todos los elementos del DOM en main.html');
+    return;
+  }
+
+  // Agregar filas iniciales de productos (2)
   productosBody.innerHTML = '';
   agregarFilaProducto();
   agregarFilaProducto();
-  document.getElementById('flete').value = '0';
+
+  // Inicializar gastos (1 vacío)
   gastosWrapper.innerHTML = '';
   agregarGasto();
-  document.getElementById('modoPrecio').value = 'porcentaje';
-  document.getElementById('valorPrecio').value = '40';
 
-  alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
-});
+  // Configurar eventos
+  configurarEventos();
 
-// ==========================================
-//  REFRESCAR
-// ==========================================
-btnRefresh.addEventListener('click', () => {
+  // Cargar datos y renderizar
   window.cargarDatos();
   renderizarProductos();
-});
+
+  console.log('✅ UI inicializada correctamente.');
+}
 
 // ==========================================
-//  INICIO
+//  CARGA AUTOMÁTICA (si el DOM ya tiene main.html)
 // ==========================================
-window.cargarDatos();
-renderizarProductos();
+// Esta función se ejecuta cuando el DOM está listo.
+// Si main.html ya está presente (por ejemplo, si se incluye directamente en index.html),
+// entonces iniciamos la UI. Si no, esperamos a que fetch lo cargue.
+document.addEventListener('DOMContentLoaded', function() {
+  // Verificar si el formulario ya existe en el DOM
+  if (document.getElementById('loteForm')) {
+    iniciarUI();
+  }
+  // Si no, el fetch en index.html llamará a iniciarUI después de cargar main.html
+});
+
+// Exponer iniciarUI globalmente para que index.html pueda llamarla
+window.iniciarUI = iniciarUI;
