@@ -24,9 +24,20 @@
     </div>
   </header>
 
-  <!-- CONTENEDOR PRINCIPAL (se llena con main.html) -->
+  <!-- NAVEGACIÓN (TABS) -->
+  <div class="container">
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="registro">
+        <i class="fas fa-clipboard-list"></i> Registro
+      </button>
+      <button class="tab-btn" data-tab="recomendaciones">
+        <i class="fas fa-chart-line"></i> Recomendaciones
+      </button>
+    </nav>
+  </div>
+
+  <!-- CONTENEDOR PRINCIPAL (se carga dinámicamente) -->
   <main class="container" id="mainContainer">
-    <!-- El contenido se carga dinámicamente -->
     <div style="text-align:center; padding:40px; color:var(--text-secondary);">
       <i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i>
       <p>Cargando...</p>
@@ -41,36 +52,7 @@
   </footer>
 
   <!-- SCRIPTS -->
-  <!-- Primero core.js (lógica) -->
   <script src="core.js"></script>
-  <!-- Luego ui.js (interfaz) -->
   <script src="ui.js"></script>
-  <!-- Finalmente, el cargador de contenido -->
-  <script>
-    // Cargar main.html y reemplazar el contenido del contenedor
-    fetch('main.html')
-      .then(response => {
-        if (!response.ok) throw new Error('No se pudo cargar main.html');
-        return response.text();
-      })
-      .then(html => {
-        document.getElementById('mainContainer').innerHTML = html;
-        // Inicializar la UI después de cargar el contenido
-        if (typeof iniciarUI === 'function') {
-          iniciarUI();
-        }
-      })
-      .catch(error => {
-        document.getElementById('mainContainer').innerHTML = `
-          <div style="text-align:center; padding:40px; color:#e74c3c;">
-            <i class="fas fa-exclamation-triangle" style="font-size:2rem;"></i>
-            <p>Error al cargar la interfaz: ${error.message}</p>
-            <p>Verifica que el archivo <strong>main.html</strong> exista en la carpeta public.</p>
-          </div>
-        `;
-        console.error(error);
-      });
-  </script>
-
 </body>
 </html>
