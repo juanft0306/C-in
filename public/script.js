@@ -1,20 +1,24 @@
 // ==========================================
-//  C🌍in - Frontend JavaScript
-//  API base (detecta automáticamente)
+//  C🌍in - Frontend con localStorage y lotes
 // ==========================================
 
-const API_URL = window.location.origin + '/api/productos';
+// ----- Constantes -----
+const STORAGE_KEY = 'coin_productos';
+const LOTES_KEY = 'coin_lotes';
+
+// ----- Estado global -----
+let productos = [];
+let lotes = [];
 
 // ----- DOM References -----
-const productForm = document.getElementById('productForm');
+const loteForm = document.getElementById('loteForm');
+const productosBody = document.getElementById('productosBody');
+const addProductoBtn = document.getElementById('addProductoBtn');
+const addGastoBtn = document.getElementById('addGastoBtn');
+const gastosWrapper = document.getElementById('gastosWrapper');
 const productList = document.getElementById('productList');
 const productCount = document.getElementById('productCount');
-const gastosWrapper = document.getElementById('gastosWrapper');
-const addGastoBtn = document.getElementById('addGastoBtn');
 const btnRefresh = document.getElementById('btnRefresh');
-
-// ----- Estado -----
-let productos = [];
 
 // ==========================================
 //  UTILIDADES
@@ -28,6 +32,10 @@ function getEmojiRecomendacion(recomendacion) {
   if (recomendacion.includes('MANTENER')) return '🟡';
   if (recomendacion.includes('DEJAR')) return '🔴';
   return '⚪';
+}
+
+function generarId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
 
 // ==========================================
@@ -45,17 +53,16 @@ function agregarGasto(concepto = '', monto = '') {
     <input type="number" step="0.01" class="gasto-monto" placeholder="Monto" value="${monto}" />
     <button type="button" class="btn-remove-gasto"><i class="fas fa-trash"></i></button>
   `;
-  // Mostrar botón de eliminar si hay más de 1
   const removeBtn = div.querySelector('.btn-remove-gasto');
   removeBtn.addEventListener('click', () => {
     div.remove();
-    actualizarVisibilidadEliminar();
+    actualizarVisibilidadEliminarGasto();
   });
   gastosWrapper.appendChild(div);
-  actualizarVisibilidadEliminar();
+  actualizarVisibilidadEliminarGasto();
 }
 
-function actualizarVisibilidadEliminar() {
+function actualizarVisibilidadEliminarGasto() {
   const items = gastosWrapper.querySelectorAll('.gasto-item');
   items.forEach((item, idx) => {
     const btn = item.querySelector('.btn-remove-gasto');
@@ -66,11 +73,8 @@ function actualizarVisibilidadEliminar() {
 }
 
 addGastoBtn.addEventListener('click', () => agregarGasto());
-
-// Inicializar con 1 gasto vacío (pero ocultamos el botón de eliminar)
+// Inicializar con un gasto vacío
 agregarGasto();
-// Eliminar el primer gasto si se agregó vacío (lo dejamos pero oculto el botón)
-// Ya se oculta con la función.
 
 function obtenerGastos() {
   const items = gastosWrapper.querySelectorAll('.gasto-item');
@@ -86,267 +90,373 @@ function obtenerGastos() {
 }
 
 // ==========================================
-//  CARGAR PRODUCTOS
+//  PRODUCTOS DINÁMICOS EN EL FORMULARIO
 // ==========================================
-async function cargarProductos() {
-  try {
-    const res = await fetch(API_URL);
-    if (!res.ok) throw new Error('Error al cargar productos');
-    const data = await res.json();
-    productos = data.data || [];
-    renderizarProductos();
-    productCount.textContent = productos.length + ' productos';
-  } catch (error) {
-    console.error('Error:', error);
-    productList.innerHTML = `
-      <div class="empty-state">
-        <i class="fas fa-exclamation-triangle"></i>
-        <p>Error al cargar: ${error.message}. ¿El servidor está corriendo?</p>
-      </div>
-    `;
-  }
+let productoRowIndex = 0;
+
+function agregarFilaProducto(nombre = '', sku = '', precio = '', cantidad = '', atributo = '') {
+  productoRowIndex++;
+  const tr = document.createElement('tr');
+  tr.dataset.index = productoRowIndex;
+  tr.innerHTML = `
+    <td><input type="text" class="prod-nombre" placeholder="Ej: Cargador" value="${nombre}" required /></td>
+    <td><input type="text" class="prod-sku" placeholder="SKU-001" value="${sku}" required /></td>
+    <td><input type="number" step="0.01" class="prod-precio" placeholder="1.20" value="${precio}" required /></td>
+    <td><input type="number" step="1" class="prod-cantidad" placeholder="100" value="${cantidad}" required /></td>
+    <td><input type="text" class="prod-atributo" placeholder="Color/Tamaño" value="${atributo}" /></td>
+    <td><button type="button" class="btn-remove-fila"><i class="fas fa-trash"></i></button></td>
+  `;
+  const removeBtn = tr.querySelector('.btn-remove-fila');
+  removeBtn.addEventListener('click', () => {
+    tr.remove();
+  });
+  productosBody.appendChild(tr);
+}
+
+addProductoBtn.addEventListener('click', () => agregarFilaProducto());
+
+// Agregar 2 filas iniciales para rapidez
+agregarFilaProducto();
+agregarFilaProducto();
+
+function obtenerProductosFormulario() {
+  const rows = productosBody.querySelectorAll('tr');
+  const productosArray = [];
+  rows.forEach(tr => {
+    const nombre = tr.querySelector('.prod-nombre').value.trim();
+    const sku = tr.querySelector('.prod-sku').value.trim();
+    const precio = parseFloat(tr.querySelector('.prod-precio').value);
+    const cantidad = parseInt(tr.querySelector('.prod-cantidad').value);
+    const atributo = tr.querySelector('.prod-atributo').value.trim();
+    if (nombre && sku && !isNaN(precio) && precio > 0 && !isNaN(cantidad) && cantidad > 0) {
+      productosArray.push({ nombre, sku, precio, cantidad, atributo });
+    }
+  });
+  return productosArray;
 }
 
 // ==========================================
-//  RENDERIZAR PRODUCTOS
+//  CÁLCULO DE COSTOS Y PRECIOS
+// ==========================================
+function calcularCostoUnitario(precioUnitarioChina, cantidad, flete, gastosExtra, valorTotalLote, valorProducto) {
+  const totalGastosExtra = gastosExtra.reduce((sum, g) => sum + g.monto, 0);
+  const gastosComunes = flete + totalGastosExtra;
+  const proporcion = valorTotalLote > 0 ? valorProducto / valorTotalLote : 0;
+  const costoTotalProducto = valorProducto + (gastosComunes * proporcion);
+  return costoTotalProducto / cantidad;
+}
+
+function calcularPrecioVenta(costoUnitario, modo, valor) {
+  let precioVenta = 0;
+  let margenGanancia = 0;
+
+  switch (modo) {
+    case 'porcentaje':
+      precioVenta = costoUnitario / (1 - (valor / 100));
+      margenGanancia = valor;
+      break;
+    case 'gananciaFija':
+      precioVenta = costoUnitario + valor;
+      margenGanancia = ((precioVenta - costoUnitario) / precioVenta) * 100;
+      break;
+    case 'precioMercado':
+      precioVenta = valor;
+      margenGanancia = ((precioVenta - costoUnitario) / precioVenta) * 100;
+      break;
+    default:
+      throw new Error('Modo no válido');
+  }
+  return {
+    precioVenta: parseFloat(precioVenta.toFixed(2)),
+    margenGanancia: parseFloat(margenGanancia.toFixed(2)),
+    gananciaUnitaria: parseFloat((precioVenta - costoUnitario).toFixed(2))
+  };
+}
+
+function calcularEngagementPromedio(interacciones) {
+  const { instagram, tiktok, marketplace } = interacciones;
+  const calcularER = (data) => {
+    if (!data.alcance || data.alcance === 0) return 0;
+    const total = data.likes + data.comentarios + data.compartidos;
+    return (total / data.alcance) * 100;
+  };
+  const er = [instagram, tiktok, marketplace].map(calcularER);
+  const promedio = er.reduce((a, b) => a + b, 0) / er.length;
+  return parseFloat(promedio.toFixed(2));
+}
+
+function calcularIndicePrioridad(costoUnitario, rotacionMensual, engagementPromedio, tasaConversion) {
+  const costoNorm = Math.max(0, 1 - (costoUnitario / 50));
+  const rotacionNorm = Math.min(1, rotacionMensual / 10);
+  const engagementNorm = Math.min(1, engagementPromedio / 10);
+  const conversionNorm = Math.min(1, tasaConversion / 50);
+  const puntaje = (costoNorm * -0.3) + (rotacionNorm * 0.4) + (engagementNorm * 0.2) + (conversionNorm * 0.1);
+  const indice = Math.max(0, Math.min(100, (puntaje + 0.5) * 100));
+  return {
+    indice: parseFloat(indice.toFixed(1)),
+    recomendacion: indice > 70 ? '🟢 TRAER MÁS' : (indice > 40 ? '🟡 MANTENER / OPTIMIZAR' : '🔴 DEJAR DE TRAER')
+  };
+}
+
+// ==========================================
+//  PERSISTENCIA EN LOCALSTORAGE
+// ==========================================
+function cargarDatos() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    productos = JSON.parse(stored);
+  } else {
+    productos = [];
+  }
+  const storedLotes = localStorage.getItem(LOTES_KEY);
+  if (storedLotes) {
+    lotes = JSON.parse(storedLotes);
+  } else {
+    lotes = [];
+  }
+}
+
+function guardarProductos() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(productos));
+  productCount.textContent = productos.length + ' productos';
+}
+
+function guardarLote(loteData) {
+  lotes.push(loteData);
+  localStorage.setItem(LOTES_KEY, JSON.stringify(lotes));
+}
+
+// ==========================================
+//  RENDERIZAR LISTA DE PRODUCTOS
 // ==========================================
 function renderizarProductos() {
   if (productos.length === 0) {
     productList.innerHTML = `
       <div class="empty-state">
         <i class="fas fa-box-open"></i>
-        <p>No hay productos aún. Crea tu primer producto arriba.</p>
+        <p>No hay productos aún. Crea tu primer lote arriba.</p>
       </div>
     `;
+    productCount.textContent = '0 productos';
     return;
   }
 
   let html = '';
   productos.forEach(p => {
-    const prioridad = p.prioridad || { indice: 0, recomendacion: '⚪ SIN DATOS' };
-    const recomendacion = prioridad.recomendacion || 'Sin datos';
-    const emoji = getEmojiRecomendacion(recomendacion);
-    const rotacion = p.rotacionMensual || 0;
-    const engagement = p.engagementPromedio || 0;
-    const conversion = p.tasaConversion || 0;
-    const margen = p.margenGanancia || 0;
-    const precioVenta = p.precioActual?.precioVenta || p.precioVentaSugerido || 0;
-    const costo = p.costoUnitarioTotal || 0;
+    const dias = Math.max(1, (Date.now() - new Date(p.fechaLlegada).getTime()) / (1000 * 60 * 60 * 24));
+    const rotacionMensual = (p.totalVendido || 0) / dias * 30;
+    const engagement = calcularEngagementPromedio(p.interacciones || {});
+    const preguntas = p.preguntasRegistradas || 1;
+    const tasaConversion = ((p.totalVendido || 0) / preguntas) * 100;
+    const prioridad = calcularIndicePrioridad(p.costoUnitarioTotal, rotacionMensual, engagement, tasaConversion);
+    const precioData = calcularPrecioVenta(p.costoUnitarioTotal, 'porcentaje', p.margenGanancia || 40);
+
+    const emoji = getEmojiRecomendacion(prioridad.recomendacion);
+    const colorPrioridad = prioridad.indice > 70 ? '#2ecc71' : (prioridad.indice > 40 ? '#f1c40f' : '#e74c3c');
 
     html += `
-      <div class="product-item" data-id="${p._id}">
+      <div class="product-item" data-id="${p.id}">
         <div class="product-header">
           <h3>
             ${emoji} ${p.nombre}
             <span class="sku">SKU: ${p.sku}</span>
+            ${p.atributo ? `<span style="font-size:0.8rem;color:var(--text-secondary);">(${p.atributo})</span>` : ''}
           </h3>
-          <span class="recomendacion" style="color: ${prioridad.indice > 70 ? '#2ecc71' : prioridad.indice > 40 ? '#f1c40f' : '#e74c3c'};">
-            ${recomendacion} (${prioridad.indice || 0} pts)
+          <span class="recomendacion" style="color:${colorPrioridad};">
+            ${prioridad.recomendacion} (${prioridad.indice} pts)
           </span>
         </div>
-
-        <div class="metric">
-          <span class="label">💰 Costo unitario</span>
-          <span class="value">${formatearUSD(costo)}</span>
-        </div>
-        <div class="metric">
-          <span class="label">🏷️ Precio venta</span>
-          <span class="value">${formatearUSD(precioVenta)} <span class="small">(${margen}% margen)</span></span>
-        </div>
-
-        <div class="metric">
-          <span class="label">📦 Rotación mensual</span>
-          <span class="value">${rotacion.toFixed(1)} <span class="small">und/mes</span></span>
-        </div>
-        <div class="metric">
-          <span class="label">📱 Engagement promedio</span>
-          <span class="value">${engagement.toFixed(2)}%</span>
-        </div>
-
-        <div class="metric">
-          <span class="label">🗣️ Tasa conversión</span>
-          <span class="value">${conversion.toFixed(1)}%</span>
-        </div>
-        <div class="metric">
-          <span class="label">📊 Prioridad</span>
-          <span class="value" style="color: ${prioridad.indice > 70 ? '#2ecc71' : prioridad.indice > 40 ? '#f1c40f' : '#e74c3c'};">
-            ${prioridad.indice || 0}/100
-          </span>
-        </div>
-
+        <div class="metric"><span class="label">💰 Costo unitario</span><span class="value">${formatearUSD(p.costoUnitarioTotal)}</span></div>
+        <div class="metric"><span class="label">🏷️ Precio venta</span><span class="value">${formatearUSD(precioData.precioVenta)} <span class="small">(${p.margenGanancia}% margen)</span></span></div>
+        <div class="metric"><span class="label">📦 Rotación mensual</span><span class="value">${rotacionMensual.toFixed(1)} <span class="small">und/mes</span></span></div>
+        <div class="metric"><span class="label">📱 Engagement promedio</span><span class="value">${engagement.toFixed(2)}%</span></div>
+        <div class="metric"><span class="label">🗣️ Tasa conversión</span><span class="value">${tasaConversion.toFixed(1)}%</span></div>
+        <div class="metric"><span class="label">📊 Prioridad</span><span class="value" style="color:${colorPrioridad};">${prioridad.indice}/100</span></div>
         <div class="product-actions">
-          <button class="btn-small" onclick="registrarVenta('${p._id}')">
-            <i class="fas fa-shopping-cart"></i> Vender
-          </button>
-          <button class="btn-small" onclick="registrarPregunta('${p._id}')">
-            <i class="fas fa-question-circle"></i> Preguntaron
-          </button>
-          <button class="btn-small" onclick="actualizarRedes('${p._id}')">
-            <i class="fas fa-share-alt"></i> Actualizar redes
-          </button>
+          <button class="btn-small" onclick="registrarVenta('${p.id}')"><i class="fas fa-shopping-cart"></i> Vender</button>
+          <button class="btn-small" onclick="registrarPregunta('${p.id}')"><i class="fas fa-question-circle"></i> Preguntaron</button>
+          <button class="btn-small" onclick="actualizarRedes('${p.id}')"><i class="fas fa-share-alt"></i> Redes</button>
+          <button class="btn-small" onclick="eliminarProducto('${p.id}')" style="color:#e74c3c;"><i class="fas fa-trash"></i></button>
         </div>
       </div>
     `;
   });
 
   productList.innerHTML = html;
+  productCount.textContent = productos.length + ' productos';
 }
 
 // ==========================================
-//  ACCIONES RÁPIDAS (desde los botones)
+//  ACCIONES RÁPIDAS (ventas, preguntas, redes, eliminar)
 // ==========================================
-// Estas funciones se llaman desde el HTML (onclick)
-window.registrarVenta = async function(id) {
+window.registrarVenta = function(id) {
   const cantidad = prompt('¿Cuántas unidades se vendieron?', '1');
   if (cantidad === null) return;
-  try {
-    const res = await fetch(`${API_URL}/${id}/venta`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cantidad: parseInt(cantidad) || 1 })
-    });
-    if (!res.ok) throw new Error('Error al registrar venta');
-    const data = await res.json();
-    alert(`✅ Venta registrada. Total vendido: ${data.totalVendido} unidades.`);
-    cargarProductos();
-  } catch (error) {
-    alert('❌ Error: ' + error.message);
-  }
+  const prod = productos.find(p => p.id === id);
+  if (!prod) return alert('Producto no encontrado');
+  const cant = parseInt(cantidad) || 1;
+  prod.totalVendido = (prod.totalVendido || 0) + cant;
+  prod.ventasRegistradas = prod.ventasRegistradas || [];
+  prod.ventasRegistradas.push({ cantidad: cant, fecha: new Date().toISOString() });
+  guardarProductos();
+  renderizarProductos();
+  alert(`✅ Venta registrada. Total vendido: ${prod.totalVendido} unidades.`);
 };
 
-window.registrarPregunta = async function(id) {
+window.registrarPregunta = function(id) {
   const cantidad = prompt('¿Cuántas preguntas recibiste?', '1');
   if (cantidad === null) return;
-  try {
-    const res = await fetch(`${API_URL}/${id}/pregunta`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cantidad: parseInt(cantidad) || 1 })
-    });
-    if (!res.ok) throw new Error('Error al registrar preguntas');
-    const data = await res.json();
-    alert(`✅ Preguntas registradas. Total: ${data.totalPreguntas}.`);
-    cargarProductos();
-  } catch (error) {
-    alert('❌ Error: ' + error.message);
-  }
+  const prod = productos.find(p => p.id === id);
+  if (!prod) return alert('Producto no encontrado');
+  const cant = parseInt(cantidad) || 1;
+  prod.preguntasRegistradas = (prod.preguntasRegistradas || 0) + cant;
+  guardarProductos();
+  renderizarProductos();
+  alert(`✅ Preguntas registradas. Total: ${prod.preguntasRegistradas}.`);
 };
 
-window.actualizarRedes = async function(id) {
-  // Ventana simple para actualizar métricas
-  const instaLikes = prompt('Instagram - Likes:', '0');
+window.actualizarRedes = function(id) {
+  const prod = productos.find(p => p.id === id);
+  if (!prod) return alert('Producto no encontrado');
+  const datos = prod.interacciones || { instagram: {}, tiktok: {}, marketplace: {} };
+  const instaLikes = prompt('Instagram - Likes:', datos.instagram?.likes || 0);
   if (instaLikes === null) return;
-  const instaCom = prompt('Instagram - Comentarios:', '0');
-  const instaShare = prompt('Instagram - Compartidos:', '0');
-  const instaAlc = prompt('Instagram - Alcance:', '100');
+  const instaCom = prompt('Instagram - Comentarios:', datos.instagram?.comentarios || 0);
+  const instaShare = prompt('Instagram - Compartidos:', datos.instagram?.compartidos || 0);
+  const instaAlc = prompt('Instagram - Alcance:', datos.instagram?.alcance || 100);
 
-  const ttkLikes = prompt('TikTok - Likes:', '0');
-  const ttkCom = prompt('TikTok - Comentarios:', '0');
-  const ttkShare = prompt('TikTok - Compartidos:', '0');
-  const ttkAlc = prompt('TikTok - Alcance:', '100');
+  const ttkLikes = prompt('TikTok - Likes:', datos.tiktok?.likes || 0);
+  const ttkCom = prompt('TikTok - Comentarios:', datos.tiktok?.comentarios || 0);
+  const ttkShare = prompt('TikTok - Compartidos:', datos.tiktok?.compartidos || 0);
+  const ttkAlc = prompt('TikTok - Alcance:', datos.tiktok?.alcance || 100);
 
-  const mktLikes = prompt('Marketplace - Likes:', '0');
-  const mktCom = prompt('Marketplace - Comentarios:', '0');
-  const mktShare = prompt('Marketplace - Compartidos:', '0');
-  const mktAlc = prompt('Marketplace - Alcance:', '100');
+  const mktLikes = prompt('Marketplace - Likes:', datos.marketplace?.likes || 0);
+  const mktCom = prompt('Marketplace - Comentarios:', datos.marketplace?.comentarios || 0);
+  const mktShare = prompt('Marketplace - Compartidos:', datos.marketplace?.compartidos || 0);
+  const mktAlc = prompt('Marketplace - Alcance:', datos.marketplace?.alcance || 100);
 
-  const body = {
+  prod.interacciones = {
     instagram: { likes: parseInt(instaLikes)||0, comentarios: parseInt(instaCom)||0, compartidos: parseInt(instaShare)||0, alcance: parseInt(instaAlc)||100 },
     tiktok: { likes: parseInt(ttkLikes)||0, comentarios: parseInt(ttkCom)||0, compartidos: parseInt(ttkShare)||0, alcance: parseInt(ttkAlc)||100 },
     marketplace: { likes: parseInt(mktLikes)||0, comentarios: parseInt(mktCom)||0, compartidos: parseInt(mktShare)||0, alcance: parseInt(mktAlc)||100 }
   };
+  guardarProductos();
+  renderizarProductos();
+  alert('✅ Métricas de redes actualizadas correctamente.');
+};
 
-  try {
-    const res = await fetch(`${API_URL}/${id}/redes`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) throw new Error('Error al actualizar redes');
-    await res.json();
-    alert('✅ Métricas de redes actualizadas correctamente.');
-    cargarProductos();
-  } catch (error) {
-    alert('❌ Error: ' + error.message);
-  }
+window.eliminarProducto = function(id) {
+  if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
+  productos = productos.filter(p => p.id !== id);
+  guardarProductos();
+  renderizarProductos();
 };
 
 // ==========================================
-//  ENVIAR FORMULARIO (CREAR PRODUCTO)
+//  ENVIAR FORMULARIO (guardar lote)
 // ==========================================
-productForm.addEventListener('submit', async (e) => {
+loteForm.addEventListener('submit', (e) => {
   e.preventDefault();
 
-  const nombre = document.getElementById('nombre').value.trim();
-  const sku = document.getElementById('sku').value.trim();
-  const precioUnitarioChina = parseFloat(document.getElementById('precioUnitario').value) || 0;
-  const cantidadImportada = parseInt(document.getElementById('cantidad').value) || 0;
-  const fleteInternacional = parseFloat(document.getElementById('flete').value) || 0;
-  const modoPrecio = document.getElementById('modoPrecio').value;
-  const valorPrecio = parseFloat(document.getElementById('valorPrecio').value) || 0;
-
+  const flete = parseFloat(document.getElementById('flete').value) || 0;
   const gastosExtra = obtenerGastos();
+  const productosData = obtenerProductosFormulario();
 
-  if (!nombre || !sku || precioUnitarioChina <= 0 || cantidadImportada <= 0) {
-    alert('⚠️ Completa todos los campos obligatorios (*).');
+  if (productosData.length === 0) {
+    alert('⚠️ Debes agregar al menos un producto válido.');
     return;
   }
 
-  const payload = {
-    nombre,
-    sku,
-    precioUnitarioChina,
-    cantidadImportada,
-    fleteInternacional,
-    gastosExtra,
-    modoPrecio,
-    valorPrecio
-  };
+  const modoPrecio = document.getElementById('modoPrecio').value;
+  const valorPrecio = parseFloat(document.getElementById('valorPrecio').value) || 0;
 
-  try {
-    const btn = productForm.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+  // Calcular valor total del lote
+  let valorTotalLote = 0;
+  productosData.forEach(p => {
+    valorTotalLote += p.precio * p.cantidad;
+  });
 
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Error al crear producto');
-    }
-
-    const data = await res.json();
-    alert(`✅ Producto creado con éxito!\nCosto unitario: ${formatearUSD(data.data.costeo.costoUnitario)}\nPrecio venta: ${formatearUSD(data.data.precio.precioVenta)}`);
-
-    // Resetear formulario (excepto gastos)
-    productForm.reset();
-    document.getElementById('flete').value = '0';
-    document.getElementById('valorPrecio').value = '40';
-    // Limpiar gastos extra (dejar solo uno vacío)
-    gastosWrapper.innerHTML = '';
-    agregarGasto();
-
-    cargarProductos();
-
-  } catch (error) {
-    alert('❌ Error: ' + error.message);
-  } finally {
-    const btn = productForm.querySelector('button[type="submit"]');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-plus-circle"></i> Crear producto y costear';
+  if (valorTotalLote === 0) {
+    alert('⚠️ El valor total del lote no puede ser cero.');
+    return;
   }
+
+  // Crear productos individuales
+  const nuevosProductos = [];
+  const loteId = generarId();
+  const fechaLlegada = new Date().toISOString();
+
+  productosData.forEach(p => {
+    const valorProducto = p.precio * p.cantidad;
+    const costoUnitario = calcularCostoUnitario(
+      p.precio,
+      p.cantidad,
+      flete,
+      gastosExtra,
+      valorTotalLote,
+      valorProducto
+    );
+    const precioData = calcularPrecioVenta(costoUnitario, modoPrecio, valorPrecio);
+
+    const producto = {
+      id: generarId(),
+      loteId: loteId,
+      nombre: p.nombre,
+      sku: p.sku,
+      atributo: p.atributo || '',
+      precioUnitarioChina: p.precio,
+      cantidadImportada: p.cantidad,
+      fleteInternacional: flete,
+      gastosExtra: gastosExtra,
+      costoUnitarioTotal: costoUnitario,
+      precioVentaSugerido: precioData.precioVenta,
+      margenGanancia: precioData.margenGanancia,
+      fechaLlegada: fechaLlegada,
+      interacciones: { instagram: {}, tiktok: {}, marketplace: {} },
+      ventasRegistradas: [],
+      totalVendido: 0,
+      preguntasRegistradas: 0
+    };
+    nuevosProductos.push(producto);
+  });
+
+  // Guardar lote (opcional, para referencia)
+  guardarLote({
+    id: loteId,
+    fecha: fechaLlegada,
+    flete,
+    gastosExtra,
+    productos: nuevosProductos.map(p => p.id)
+  });
+
+  // Agregar a la lista global
+  productos = productos.concat(nuevosProductos);
+  guardarProductos();
+  renderizarProductos();
+
+  // Resetear formulario (mantener solo 2 filas de productos vacías)
+  productosBody.innerHTML = '';
+  agregarFilaProducto();
+  agregarFilaProducto();
+  document.getElementById('flete').value = '0';
+  gastosWrapper.innerHTML = '';
+  agregarGasto();
+  document.getElementById('modoPrecio').value = 'porcentaje';
+  document.getElementById('valorPrecio').value = '40';
+
+  alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
 });
 
 // ==========================================
 //  REFRESCAR
 // ==========================================
-btnRefresh.addEventListener('click', cargarProductos);
+btnRefresh.addEventListener('click', () => {
+  cargarDatos();
+  renderizarProductos();
+});
 
 // ==========================================
 //  INICIO
 // ==========================================
-cargarProductos();
+cargarDatos();
+renderizarProductos();
