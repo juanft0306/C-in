@@ -1,14 +1,6 @@
 // ==========================================
-//  C🌍in - Frontend con localStorage y lotes
+//  C🌍in - UI (DOM, eventos, renderizado)
 // ==========================================
-
-// ----- Constantes -----
-const STORAGE_KEY = 'coin_productos';
-const LOTES_KEY = 'coin_lotes';
-
-// ----- Estado global -----
-let productos = [];
-let lotes = [];
 
 // ----- DOM References -----
 const loteForm = document.getElementById('loteForm');
@@ -19,44 +11,6 @@ const gastosWrapper = document.getElementById('gastosWrapper');
 const productList = document.getElementById('productList');
 const productCount = document.getElementById('productCount');
 const btnRefresh = document.getElementById('btnRefresh');
-
-// ==========================================
-//  UTILIDADES
-// ==========================================
-function formatearUSD(valor) {
-  return '$' + Number(valor).toFixed(2);
-}
-
-function getEmojiRecomendacion(recomendacion) {
-  if (recomendacion.includes('TRAER MÁS')) return '🟢';
-  if (recomendacion.includes('MANTENER')) return '🟡';
-  if (recomendacion.includes('DEJAR')) return '🔴';
-  return '⚪';
-}
-
-function generarId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-}
-
-// ==========================================
-//  GENERACIÓN AUTOMÁTICA DE SKU
-//  Formato: Letra mayúscula + 3 dígitos (ej: A001)
-// ==========================================
-function generarSKU(nombre, skusExistentes) {
-  if (!nombre || nombre.trim() === '') return '';
-  const letra = nombre.trim().charAt(0).toUpperCase();
-  // Filtrar SKUs que empiezan con esa letra y tienen 4 caracteres (letra + 3 dígitos)
-  const skusConLetra = skusExistentes.filter(sku => sku.startsWith(letra) && sku.length === 4);
-  // Extraer los números y encontrar el máximo
-  let maxNumero = 0;
-  skusConLetra.forEach(sku => {
-    const num = parseInt(sku.substring(1), 10);
-    if (!isNaN(num) && num > maxNumero) maxNumero = num;
-  });
-  const nuevoNumero = maxNumero + 1;
-  const numeroFormateado = String(nuevoNumero).padStart(3, '0');
-  return letra + numeroFormateado;
-}
 
 // ==========================================
 //  GASTOS EXTRA - DINÁMICOS
@@ -142,8 +96,8 @@ agregarFilaProducto();
 function obtenerProductosFormulario() {
   const rows = productosBody.querySelectorAll('tr');
   const productosArray = [];
-  // Recoger todos los SKUs ya existentes en localStorage y los que ya hemos procesado en este lote
-  const skusGlobales = productos.map(p => p.sku).filter(s => s && s.length === 4);
+  // Recoger SKUs existentes en localStorage y en el lote actual
+  const skusGlobales = window.productos.map(p => p.sku).filter(s => s && s.length === 4);
   const skusEnLote = [];
   rows.forEach(tr => {
     const skuInput = tr.querySelector('.prod-sku');
@@ -162,27 +116,17 @@ function obtenerProductosFormulario() {
     const cantidad = parseInt(tr.querySelector('.prod-cantidad').value);
     const atributo = tr.querySelector('.prod-atributo').value.trim();
 
-    // Si el SKU está vacío o es solo el placeholder, generarlo automáticamente
     if (!sku || sku === '') {
       if (nombre) {
-        sku = generarSKU(nombre, skusExistentes);
-        // Actualizar el campo visual para que el usuario vea el SKU generado
+        sku = window.generarSKU(nombre, skusExistentes);
         skuInput.value = sku;
       } else {
-        // Si no hay nombre, no se puede generar SKU
         sku = '';
       }
     }
 
-    // Validar que el SKU tenga el formato correcto (opcional, pero lo dejamos)
-    if (sku && !/^[A-Z]\d{3}$/.test(sku)) {
-      // Si no cumple el formato, lo dejamos como está, pero podría avisar
-      console.warn(`SKU ${sku} no tiene el formato esperado (Letra + 3 dígitos)`);
-    }
-
     if (nombre && sku && !isNaN(precio) && precio > 0 && !isNaN(cantidad) && cantidad > 0) {
       productosArray.push({ nombre, sku, precio, cantidad, atributo });
-      // Agregar este SKU a los existentes para evitar duplicados en el mismo lote
       skusExistentes.push(sku);
     }
   });
@@ -190,100 +134,10 @@ function obtenerProductosFormulario() {
 }
 
 // ==========================================
-//  CÁLCULO DE COSTOS Y PRECIOS
-// ==========================================
-function calcularCostoUnitario(precioUnitarioChina, cantidad, flete, gastosExtra, valorTotalLote, valorProducto) {
-  const totalGastosExtra = gastosExtra.reduce((sum, g) => sum + g.monto, 0);
-  const gastosComunes = flete + totalGastosExtra;
-  const proporcion = valorTotalLote > 0 ? valorProducto / valorTotalLote : 0;
-  const costoTotalProducto = valorProducto + (gastosComunes * proporcion);
-  return costoTotalProducto / cantidad;
-}
-
-function calcularPrecioVenta(costoUnitario, modo, valor) {
-  let precioVenta = 0;
-  let margenGanancia = 0;
-
-  switch (modo) {
-    case 'porcentaje':
-      precioVenta = costoUnitario / (1 - (valor / 100));
-      margenGanancia = valor;
-      break;
-    case 'gananciaFija':
-      precioVenta = costoUnitario + valor;
-      margenGanancia = ((precioVenta - costoUnitario) / precioVenta) * 100;
-      break;
-    case 'precioMercado':
-      precioVenta = valor;
-      margenGanancia = ((precioVenta - costoUnitario) / precioVenta) * 100;
-      break;
-    default:
-      throw new Error('Modo no válido');
-  }
-  return {
-    precioVenta: parseFloat(precioVenta.toFixed(2)),
-    margenGanancia: parseFloat(margenGanancia.toFixed(2)),
-    gananciaUnitaria: parseFloat((precioVenta - costoUnitario).toFixed(2))
-  };
-}
-
-function calcularEngagementPromedio(interacciones) {
-  const { instagram, tiktok, marketplace } = interacciones;
-  const calcularER = (data) => {
-    if (!data.alcance || data.alcance === 0) return 0;
-    const total = data.likes + data.comentarios + data.compartidos;
-    return (total / data.alcance) * 100;
-  };
-  const er = [instagram, tiktok, marketplace].map(calcularER);
-  const promedio = er.reduce((a, b) => a + b, 0) / er.length;
-  return parseFloat(promedio.toFixed(2));
-}
-
-function calcularIndicePrioridad(costoUnitario, rotacionMensual, engagementPromedio, tasaConversion) {
-  const costoNorm = Math.max(0, 1 - (costoUnitario / 50));
-  const rotacionNorm = Math.min(1, rotacionMensual / 10);
-  const engagementNorm = Math.min(1, engagementPromedio / 10);
-  const conversionNorm = Math.min(1, tasaConversion / 50);
-  const puntaje = (costoNorm * -0.3) + (rotacionNorm * 0.4) + (engagementNorm * 0.2) + (conversionNorm * 0.1);
-  const indice = Math.max(0, Math.min(100, (puntaje + 0.5) * 100));
-  return {
-    indice: parseFloat(indice.toFixed(1)),
-    recomendacion: indice > 70 ? '🟢 TRAER MÁS' : (indice > 40 ? '🟡 MANTENER / OPTIMIZAR' : '🔴 DEJAR DE TRAER')
-  };
-}
-
-// ==========================================
-//  PERSISTENCIA EN LOCALSTORAGE
-// ==========================================
-function cargarDatos() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    productos = JSON.parse(stored);
-  } else {
-    productos = [];
-  }
-  const storedLotes = localStorage.getItem(LOTES_KEY);
-  if (storedLotes) {
-    lotes = JSON.parse(storedLotes);
-  } else {
-    lotes = [];
-  }
-}
-
-function guardarProductos() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(productos));
-  productCount.textContent = productos.length + ' productos';
-}
-
-function guardarLote(loteData) {
-  lotes.push(loteData);
-  localStorage.setItem(LOTES_KEY, JSON.stringify(lotes));
-}
-
-// ==========================================
 //  RENDERIZAR LISTA DE PRODUCTOS
 // ==========================================
 function renderizarProductos() {
+  const productos = window.productos;
   if (productos.length === 0) {
     productList.innerHTML = `
       <div class="empty-state">
@@ -299,13 +153,13 @@ function renderizarProductos() {
   productos.forEach(p => {
     const dias = Math.max(1, (Date.now() - new Date(p.fechaLlegada).getTime()) / (1000 * 60 * 60 * 24));
     const rotacionMensual = (p.totalVendido || 0) / dias * 30;
-    const engagement = calcularEngagementPromedio(p.interacciones || {});
+    const engagement = window.calcularEngagementPromedio(p.interacciones || {});
     const preguntas = p.preguntasRegistradas || 1;
     const tasaConversion = ((p.totalVendido || 0) / preguntas) * 100;
-    const prioridad = calcularIndicePrioridad(p.costoUnitarioTotal, rotacionMensual, engagement, tasaConversion);
-    const precioData = calcularPrecioVenta(p.costoUnitarioTotal, 'porcentaje', p.margenGanancia || 40);
+    const prioridad = window.calcularIndicePrioridad(p.costoUnitarioTotal, rotacionMensual, engagement, tasaConversion);
+    const precioData = window.calcularPrecioVenta(p.costoUnitarioTotal, 'porcentaje', p.margenGanancia || 40);
 
-    const emoji = getEmojiRecomendacion(prioridad.recomendacion);
+    const emoji = window.getEmojiRecomendacion(prioridad.recomendacion);
     const colorPrioridad = prioridad.indice > 70 ? '#2ecc71' : (prioridad.indice > 40 ? '#f1c40f' : '#e74c3c');
 
     html += `
@@ -320,17 +174,17 @@ function renderizarProductos() {
             ${prioridad.recomendacion} (${prioridad.indice} pts)
           </span>
         </div>
-        <div class="metric"><span class="label">💰 Costo unitario</span><span class="value">${formatearUSD(p.costoUnitarioTotal)}</span></div>
-        <div class="metric"><span class="label">🏷️ Precio venta</span><span class="value">${formatearUSD(precioData.precioVenta)} <span class="small">(${p.margenGanancia}% margen)</span></span></div>
+        <div class="metric"><span class="label">💰 Costo unitario</span><span class="value">${window.formatearUSD(p.costoUnitarioTotal)}</span></div>
+        <div class="metric"><span class="label">🏷️ Precio venta</span><span class="value">${window.formatearUSD(precioData.precioVenta)} <span class="small">(${p.margenGanancia}% margen)</span></span></div>
         <div class="metric"><span class="label">📦 Rotación mensual</span><span class="value">${rotacionMensual.toFixed(1)} <span class="small">und/mes</span></span></div>
         <div class="metric"><span class="label">📱 Engagement promedio</span><span class="value">${engagement.toFixed(2)}%</span></div>
         <div class="metric"><span class="label">🗣️ Tasa conversión</span><span class="value">${tasaConversion.toFixed(1)}%</span></div>
         <div class="metric"><span class="label">📊 Prioridad</span><span class="value" style="color:${colorPrioridad};">${prioridad.indice}/100</span></div>
         <div class="product-actions">
-          <button class="btn-small" onclick="registrarVenta('${p.id}')"><i class="fas fa-shopping-cart"></i> Vender</button>
-          <button class="btn-small" onclick="registrarPregunta('${p.id}')"><i class="fas fa-question-circle"></i> Preguntaron</button>
-          <button class="btn-small" onclick="actualizarRedes('${p.id}')"><i class="fas fa-share-alt"></i> Redes</button>
-          <button class="btn-small" onclick="eliminarProducto('${p.id}')" style="color:#e74c3c;"><i class="fas fa-trash"></i></button>
+          <button class="btn-small" onclick="window.registrarVenta('${p.id}')"><i class="fas fa-shopping-cart"></i> Vender</button>
+          <button class="btn-small" onclick="window.registrarPregunta('${p.id}')"><i class="fas fa-question-circle"></i> Preguntaron</button>
+          <button class="btn-small" onclick="window.actualizarRedes('${p.id}')"><i class="fas fa-share-alt"></i> Redes</button>
+          <button class="btn-small" onclick="window.eliminarProducto('${p.id}')" style="color:#e74c3c;"><i class="fas fa-trash"></i></button>
         </div>
       </div>
     `;
@@ -346,13 +200,13 @@ function renderizarProductos() {
 window.registrarVenta = function(id) {
   const cantidad = prompt('¿Cuántas unidades se vendieron?', '1');
   if (cantidad === null) return;
-  const prod = productos.find(p => p.id === id);
+  const prod = window.productos.find(p => p.id === id);
   if (!prod) return alert('Producto no encontrado');
   const cant = parseInt(cantidad) || 1;
   prod.totalVendido = (prod.totalVendido || 0) + cant;
   prod.ventasRegistradas = prod.ventasRegistradas || [];
   prod.ventasRegistradas.push({ cantidad: cant, fecha: new Date().toISOString() });
-  guardarProductos();
+  window.guardarProductos();
   renderizarProductos();
   alert(`✅ Venta registrada. Total vendido: ${prod.totalVendido} unidades.`);
 };
@@ -360,17 +214,17 @@ window.registrarVenta = function(id) {
 window.registrarPregunta = function(id) {
   const cantidad = prompt('¿Cuántas preguntas recibiste?', '1');
   if (cantidad === null) return;
-  const prod = productos.find(p => p.id === id);
+  const prod = window.productos.find(p => p.id === id);
   if (!prod) return alert('Producto no encontrado');
   const cant = parseInt(cantidad) || 1;
   prod.preguntasRegistradas = (prod.preguntasRegistradas || 0) + cant;
-  guardarProductos();
+  window.guardarProductos();
   renderizarProductos();
   alert(`✅ Preguntas registradas. Total: ${prod.preguntasRegistradas}.`);
 };
 
 window.actualizarRedes = function(id) {
-  const prod = productos.find(p => p.id === id);
+  const prod = window.productos.find(p => p.id === id);
   if (!prod) return alert('Producto no encontrado');
   const datos = prod.interacciones || { instagram: {}, tiktok: {}, marketplace: {} };
   const instaLikes = prompt('Instagram - Likes:', datos.instagram?.likes || 0);
@@ -394,15 +248,15 @@ window.actualizarRedes = function(id) {
     tiktok: { likes: parseInt(ttkLikes)||0, comentarios: parseInt(ttkCom)||0, compartidos: parseInt(ttkShare)||0, alcance: parseInt(ttkAlc)||100 },
     marketplace: { likes: parseInt(mktLikes)||0, comentarios: parseInt(mktCom)||0, compartidos: parseInt(mktShare)||0, alcance: parseInt(mktAlc)||100 }
   };
-  guardarProductos();
+  window.guardarProductos();
   renderizarProductos();
   alert('✅ Métricas de redes actualizadas correctamente.');
 };
 
 window.eliminarProducto = function(id) {
   if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
-  productos = productos.filter(p => p.id !== id);
-  guardarProductos();
+  window.productos = window.productos.filter(p => p.id !== id);
+  window.guardarProductos();
   renderizarProductos();
 };
 
@@ -424,7 +278,6 @@ loteForm.addEventListener('submit', (e) => {
   const modoPrecio = document.getElementById('modoPrecio').value;
   const valorPrecio = parseFloat(document.getElementById('valorPrecio').value) || 0;
 
-  // Calcular valor total del lote
   let valorTotalLote = 0;
   productosData.forEach(p => {
     valorTotalLote += p.precio * p.cantidad;
@@ -435,14 +288,13 @@ loteForm.addEventListener('submit', (e) => {
     return;
   }
 
-  // Crear productos individuales
   const nuevosProductos = [];
-  const loteId = generarId();
+  const loteId = window.generarId();
   const fechaLlegada = new Date().toISOString();
 
   productosData.forEach(p => {
     const valorProducto = p.precio * p.cantidad;
-    const costoUnitario = calcularCostoUnitario(
+    const costoUnitario = window.calcularCostoUnitario(
       p.precio,
       p.cantidad,
       flete,
@@ -450,10 +302,10 @@ loteForm.addEventListener('submit', (e) => {
       valorTotalLote,
       valorProducto
     );
-    const precioData = calcularPrecioVenta(costoUnitario, modoPrecio, valorPrecio);
+    const precioData = window.calcularPrecioVenta(costoUnitario, modoPrecio, valorPrecio);
 
     const producto = {
-      id: generarId(),
+      id: window.generarId(),
       loteId: loteId,
       nombre: p.nombre,
       sku: p.sku,
@@ -474,8 +326,7 @@ loteForm.addEventListener('submit', (e) => {
     nuevosProductos.push(producto);
   });
 
-  // Guardar lote (opcional, para referencia)
-  guardarLote({
+  window.guardarLote({
     id: loteId,
     fecha: fechaLlegada,
     flete,
@@ -483,12 +334,11 @@ loteForm.addEventListener('submit', (e) => {
     productos: nuevosProductos.map(p => p.id)
   });
 
-  // Agregar a la lista global
-  productos = productos.concat(nuevosProductos);
-  guardarProductos();
+  window.productos = window.productos.concat(nuevosProductos);
+  window.guardarProductos();
   renderizarProductos();
 
-  // Resetear formulario (mantener solo 2 filas de productos vacías)
+  // Resetear formulario
   productosBody.innerHTML = '';
   agregarFilaProducto();
   agregarFilaProducto();
@@ -501,4 +351,16 @@ loteForm.addEventListener('submit', (e) => {
   alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
 });
 
-// =========================
+// ==========================================
+//  REFRESCAR
+// ==========================================
+btnRefresh.addEventListener('click', () => {
+  window.cargarDatos();
+  renderizarProductos();
+});
+
+// ==========================================
+//  INICIO
+// ==========================================
+window.cargarDatos();
+renderizarProductos();
