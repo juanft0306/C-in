@@ -39,6 +39,26 @@ function generarId() {
 }
 
 // ==========================================
+//  GENERACIÓN AUTOMÁTICA DE SKU
+//  Formato: Letra mayúscula + 3 dígitos (ej: A001)
+// ==========================================
+function generarSKU(nombre, skusExistentes) {
+  if (!nombre || nombre.trim() === '') return '';
+  const letra = nombre.trim().charAt(0).toUpperCase();
+  // Filtrar SKUs que empiezan con esa letra y tienen 4 caracteres (letra + 3 dígitos)
+  const skusConLetra = skusExistentes.filter(sku => sku.startsWith(letra) && sku.length === 4);
+  // Extraer los números y encontrar el máximo
+  let maxNumero = 0;
+  skusConLetra.forEach(sku => {
+    const num = parseInt(sku.substring(1), 10);
+    if (!isNaN(num) && num > maxNumero) maxNumero = num;
+  });
+  const nuevoNumero = maxNumero + 1;
+  const numeroFormateado = String(nuevoNumero).padStart(3, '0');
+  return letra + numeroFormateado;
+}
+
+// ==========================================
 //  GASTOS EXTRA - DINÁMICOS
 // ==========================================
 let gastoIndex = 0;
@@ -100,7 +120,7 @@ function agregarFilaProducto(nombre = '', sku = '', precio = '', cantidad = '', 
   tr.dataset.index = productoRowIndex;
   tr.innerHTML = `
     <td><input type="text" class="prod-nombre" placeholder="Ej: Cargador" value="${nombre}" required /></td>
-    <td><input type="text" class="prod-sku" placeholder="SKU-001" value="${sku}" required /></td>
+    <td><input type="text" class="prod-sku" placeholder="A001" value="${sku}" /></td>
     <td><input type="number" step="0.01" class="prod-precio" placeholder="1.20" value="${precio}" required /></td>
     <td><input type="number" step="1" class="prod-cantidad" placeholder="100" value="${cantidad}" required /></td>
     <td><input type="text" class="prod-atributo" placeholder="Color/Tamaño" value="${atributo}" /></td>
@@ -115,21 +135,55 @@ function agregarFilaProducto(nombre = '', sku = '', precio = '', cantidad = '', 
 
 addProductoBtn.addEventListener('click', () => agregarFilaProducto());
 
-// Agregar 2 filas iniciales para rapidez
+// Agregar 2 filas iniciales vacías
 agregarFilaProducto();
 agregarFilaProducto();
 
 function obtenerProductosFormulario() {
   const rows = productosBody.querySelectorAll('tr');
   const productosArray = [];
+  // Recoger todos los SKUs ya existentes en localStorage y los que ya hemos procesado en este lote
+  const skusGlobales = productos.map(p => p.sku).filter(s => s && s.length === 4);
+  const skusEnLote = [];
+  rows.forEach(tr => {
+    const skuInput = tr.querySelector('.prod-sku');
+    if (skuInput) {
+      const sku = skuInput.value.trim().toUpperCase();
+      if (sku) skusEnLote.push(sku);
+    }
+  });
+  const skusExistentes = [...skusGlobales, ...skusEnLote];
+
   rows.forEach(tr => {
     const nombre = tr.querySelector('.prod-nombre').value.trim();
-    const sku = tr.querySelector('.prod-sku').value.trim();
+    const skuInput = tr.querySelector('.prod-sku');
+    let sku = skuInput.value.trim().toUpperCase();
     const precio = parseFloat(tr.querySelector('.prod-precio').value);
     const cantidad = parseInt(tr.querySelector('.prod-cantidad').value);
     const atributo = tr.querySelector('.prod-atributo').value.trim();
+
+    // Si el SKU está vacío o es solo el placeholder, generarlo automáticamente
+    if (!sku || sku === '') {
+      if (nombre) {
+        sku = generarSKU(nombre, skusExistentes);
+        // Actualizar el campo visual para que el usuario vea el SKU generado
+        skuInput.value = sku;
+      } else {
+        // Si no hay nombre, no se puede generar SKU
+        sku = '';
+      }
+    }
+
+    // Validar que el SKU tenga el formato correcto (opcional, pero lo dejamos)
+    if (sku && !/^[A-Z]\d{3}$/.test(sku)) {
+      // Si no cumple el formato, lo dejamos como está, pero podría avisar
+      console.warn(`SKU ${sku} no tiene el formato esperado (Letra + 3 dígitos)`);
+    }
+
     if (nombre && sku && !isNaN(precio) && precio > 0 && !isNaN(cantidad) && cantidad > 0) {
       productosArray.push({ nombre, sku, precio, cantidad, atributo });
+      // Agregar este SKU a los existentes para evitar duplicados en el mismo lote
+      skusExistentes.push(sku);
     }
   });
   return productosArray;
@@ -447,16 +501,4 @@ loteForm.addEventListener('submit', (e) => {
   alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
 });
 
-// ==========================================
-//  REFRESCAR
-// ==========================================
-btnRefresh.addEventListener('click', () => {
-  cargarDatos();
-  renderizarProductos();
-});
-
-// ==========================================
-//  INICIO
-// ==========================================
-cargarDatos();
-renderizarProductos();
+// =========================
