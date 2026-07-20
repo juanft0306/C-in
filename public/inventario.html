@@ -1,0 +1,30 @@
+<!-- ========================================== -->
+<!-- PANTALLA: INVENTARIO                        -->
+<!-- ========================================== -->
+
+<div class="card">
+  <div class="card-header">
+    <h2><i class="fas fa-warehouse"></i> Inventario</h2>
+    <span class="badge" id="stockCount">0 unidades</span>
+  </div>
+
+  <!-- Resumen del inventario -->
+  <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px; background:var(--bg-input); padding:16px; border-radius:12px;">
+    <div>
+      <span style="color:var(--text-secondary); font-size:0.8rem;">Valor total del inventario</span>
+      <div style="font-size:1.5rem; font-weight:700; color:var(--gold);" id="valorTotal">$0.00</div>
+    </div>
+    <div>
+      <span style="color:var(--text-secondary); font-size:0.8rem;">Total de productos</span>
+      <div style="font-size:1.5rem; font-weight:700;" id="totalProductos">0</div>
+    </div>
+  </div>
+
+  <!-- Lista de productos agrupados por SKU -->
+  <div id="inventarioContainer">
+    <div class="empty-state">
+      <i class="fas fa-boxes"></i>
+      <p>No hay productos en el inventario.</p>
+    </div>
+  </div>
+</div>
