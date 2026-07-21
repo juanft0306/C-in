@@ -2,13 +2,34 @@
 //  C🌍in - UI (DOM, eventos, renderizado)
 // ==========================================
 
-// ----- Variables globales (referencias DOM) -----
+// ----- Variables globales -----
 let loteForm, productosBody, addProductoBtn, addGastoBtn, gastosWrapper;
 let productList, productCount;
 let gastoIndex = 0;
 let productoRowIndex = 0;
 let filtroActual = 'todos';
 let currentTab = 'registro';
+
+// ==========================================
+//  MENÚ HAMBURGUESA (animado)
+// ==========================================
+function toggleMenu() {
+  const hamburger = document.getElementById('hamburgerBtn');
+  const nav = document.getElementById('tabsNav');
+  if (hamburger && nav) {
+    hamburger.classList.toggle('active');
+    nav.classList.toggle('open');
+  }
+}
+
+function closeMenu() {
+  const hamburger = document.getElementById('hamburgerBtn');
+  const nav = document.getElementById('tabsNav');
+  if (hamburger && nav) {
+    hamburger.classList.remove('active');
+    nav.classList.remove('open');
+  }
+}
 
 // ==========================================
 //  NAVEGACIÓN ENTRE PANTALLAS
@@ -25,7 +46,8 @@ function cambiarPantalla(tab) {
   const archivos = {
     registro: 'registro.html',
     recomendaciones: 'recomendaciones.html',
-    inventario: 'inventario.html'
+    inventario: 'inventario.html',
+    contabilidad: 'contabilidad.html'
   };
 
   const archivo = archivos[tab] || 'registro.html';
@@ -49,7 +71,12 @@ function cambiarPantalla(tab) {
         case 'inventario':
           inicializarInventario();
           break;
+        case 'contabilidad':
+          inicializarContabilidad();
+          break;
       }
+      // Cerrar menú al cambiar de pestaña (móvil)
+      closeMenu();
     })
     .catch(error => {
       document.getElementById('mainContainer').innerHTML = `
@@ -184,25 +211,20 @@ function inicializarRegistro() {
     return;
   }
 
-  // Inicializar productos
   productosBody.innerHTML = '';
   productoRowIndex = 0;
   agregarFilaProducto();
   agregarFilaProducto();
 
-  // Inicializar gastos
   gastosWrapper.innerHTML = '';
   gastoIndex = 0;
   agregarGasto();
 
-  // Configurar eventos
   configurarEventosRegistro();
-
   console.log('✅ Pantalla de registro inicializada');
 }
 
 function configurarEventosRegistro() {
-  // Envío del formulario
   loteForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
@@ -277,6 +299,25 @@ function configurarEventosRegistro() {
     window.productos = window.productos.concat(nuevosProductos);
     window.guardarProductos();
 
+    // Generar asientos contables
+    const valorLoteTotal = productosData.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+    const totalGastosExtra = gastosExtra.reduce((sum, g) => sum + g.monto, 0);
+    const asientoCompra = {
+      id: window.generarId(),
+      fecha: fechaLlegada,
+      descripcion: `Compra de lote ${loteId} - ${nuevosProductos.length} productos`,
+      tipo: 'compra',
+      movimientos: [
+        { cuenta: 'Inventario', debe: valorLoteTotal + flete + totalGastosExtra, haber: 0 },
+        { cuenta: 'Banco', debe: 0, haber: valorLoteTotal },
+        { cuenta: 'Gastos de Envío', debe: flete, haber: 0 },
+        { cuenta: 'Gastos Administrativos', debe: totalGastosExtra, haber: 0 }
+      ],
+      referencia: loteId,
+      productos: nuevosProductos.map(p => p.id)
+    };
+    window.agregarAsiento(asientoCompra);
+
     // Resetear formulario
     productosBody.innerHTML = '';
     agregarFilaProducto();
@@ -306,7 +347,6 @@ function inicializarRecomendaciones() {
     return;
   }
 
-  // Configurar filtros
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -541,6 +581,278 @@ function renderizarInventario() {
 }
 
 // ==========================================
+//  PANTALLA DE CONTABILIDAD
+// ==========================================
+function inicializarContabilidad() {
+  const container = document.getElementById('contabilidadContainer');
+  if (!container) {
+    console.error('❌ Error: No se encontró contabilidadContainer');
+    return;
+  }
+
+  // Configurar tabs internos
+  document.querySelectorAll('.contab-tab').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.contab-tab').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      renderizarContabilidad(this.dataset.contab);
+    });
+  });
+
+  // Si no hay asientos, generarlos desde productos
+  if (window.asientos.length === 0) {
+    window.generarAsientosIniciales();
+  }
+
+  renderizarContabilidad('diario');
+  console.log('✅ Pantalla de contabilidad inicializada');
+}
+
+function renderizarContabilidad(vista) {
+  const container = document.getElementById('contabilidadContainer');
+  if (!container) return;
+
+  switch (vista) {
+    case 'diario':
+      renderizarLibroDiario(container);
+      break;
+    case 'mayor':
+      renderizarLibroMayor(container);
+      break;
+    case 'resultados':
+      renderizarBalanceResultados(container);
+      break;
+    case 'general':
+      renderizarBalanceGeneral(container);
+      break;
+    default:
+      container.innerHTML = `<p>Vista no encontrada</p>`;
+  }
+}
+
+function renderizarLibroDiario(container) {
+  const asientos = window.asientos || [];
+  if (asientos.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-book"></i>
+        <p>No hay asientos contables registrados.</p>
+      </div>
+    `;
+    document.getElementById('asientosCount').textContent = '0 asientos';
+    return;
+  }
+
+  let html = `
+    <h3 style="margin-bottom:16px;">📖 Libro Diario</h3>
+    <div style="overflow-x:auto;">
+      <table class="contabilidad-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Descripción</th>
+            <th>Cuenta</th>
+            <th>Debe</th>
+            <th>Haber</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  asientos.forEach(asiento => {
+    const fecha = new Date(asiento.fecha).toLocaleDateString('es-ES');
+    asiento.movimientos.forEach((mov, idx) => {
+      html += `
+        <tr>
+          ${idx === 0 ? `<td rowspan="${asiento.movimientos.length}">${fecha}</td>` : ''}
+          ${idx === 0 ? `<td rowspan="${asiento.movimientos.length}">${asiento.descripcion}</td>` : ''}
+          <td>${mov.cuenta}</td>
+          <td>${mov.debe > 0 ? window.formatearUSD(mov.debe) : ''}</td>
+          <td>${mov.haber > 0 ? window.formatearUSD(mov.haber) : ''}</td>
+        </tr>
+      `;
+    });
+  });
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  container.innerHTML = html;
+  document.getElementById('asientosCount').textContent = asientos.length + ' asientos';
+}
+
+function renderizarLibroMayor(container) {
+  const asientos = window.asientos || [];
+  if (asientos.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-chart-bar"></i>
+        <p>No hay movimientos para mostrar en el libro mayor.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const cuentas = {};
+  asientos.forEach(asiento => {
+    asiento.movimientos.forEach(mov => {
+      if (!cuentas[mov.cuenta]) {
+        cuentas[mov.cuenta] = { debe: 0, haber: 0, saldo: 0 };
+      }
+      cuentas[mov.cuenta].debe += mov.debe;
+      cuentas[mov.cuenta].haber += mov.haber;
+      cuentas[mov.cuenta].saldo = cuentas[mov.cuenta].debe - cuentas[mov.cuenta].haber;
+    });
+  });
+
+  let html = `
+    <h3 style="margin-bottom:16px;">📊 Libro Mayor (Cuentas T)</h3>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+  `;
+
+  for (const [cuenta, data] of Object.entries(cuentas)) {
+    const esDeudora = data.saldo >= 0;
+    html += `
+      <div class="cuenta-t">
+        <h4 style="text-align:center; border-bottom:2px solid var(--gold); padding-bottom:6px; margin-bottom:10px;">
+          ${cuenta}
+        </h4>
+        <div style="display:flex; justify-content:space-between; font-size:0.9rem; padding:4px 8px;">
+          <span><strong>Debe:</strong> ${window.formatearUSD(data.debe)}</span>
+          <span><strong>Haber:</strong> ${window.formatearUSD(data.haber)}</span>
+        </div>
+        <div style="text-align:center; margin-top:8px; padding:6px; background:${esDeudora ? 'rgba(46, 204, 113, 0.2)' : 'rgba(231, 76, 60, 0.2)'}; border-radius:6px;">
+          <strong>Saldo:</strong> ${esDeudora ? 'Deudor' : 'Acreedor'} ${window.formatearUSD(Math.abs(data.saldo))}
+        </div>
+      </div>
+    `;
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function renderizarBalanceResultados(container) {
+  const asientos = window.asientos || [];
+  if (asientos.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-chart-pie"></i>
+        <p>No hay datos para calcular el balance de resultados.</p>
+      </div>
+    `;
+    return;
+  }
+
+  let ingresos = 0;
+  let gastos = 0;
+
+  asientos.forEach(asiento => {
+    asiento.movimientos.forEach(mov => {
+      const cuenta = mov.cuenta;
+      if (cuenta === 'Ventas') ingresos += mov.haber - mov.debe;
+      else if (cuenta === 'Costo de Ventas') gastos += mov.debe - mov.haber;
+      else if (cuenta.includes('Gasto')) gastos += mov.debe - mov.haber;
+    });
+  });
+
+  const resultado = ingresos - gastos;
+
+  let html = `
+    <h3 style="margin-bottom:16px;">📈 Balance de Resultados</h3>
+    <div style="max-width:500px; margin:0 auto;">
+      <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--border-color);">
+        <span><strong>Ingresos (Ventas)</strong></span>
+        <span style="color:#2ecc71;">${window.formatearUSD(ingresos)}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--border-color);">
+        <span><strong>Gastos</strong></span>
+        <span style="color:#e74c3c;">${window.formatearUSD(gastos)}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:16px; background:var(--gold); color:#0a0e27; border-radius:8px; margin-top:12px; font-weight:bold; font-size:1.2rem;">
+        <span>Resultado Neto</span>
+        <span>${resultado >= 0 ? '🟢' : '🔴'} ${window.formatearUSD(resultado)}</span>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+function renderizarBalanceGeneral(container) {
+  const asientos = window.asientos || [];
+  if (asientos.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-balance-scale"></i>
+        <p>No hay datos para calcular el balance general.</p>
+      </div>
+    `;
+    return;
+  }
+
+  let activo = 0;
+  let pasivo = 0;
+  let capital = 0;
+
+  asientos.forEach(asiento => {
+    asiento.movimientos.forEach(mov => {
+      const cuenta = mov.cuenta;
+      if (cuenta === 'Inventario' || cuenta === 'Banco') {
+        activo += mov.debe - mov.haber;
+      } else if (cuenta === 'Proveedores') {
+        pasivo += mov.haber - mov.debe;
+      } else if (cuenta === 'Capital') {
+        capital += mov.haber - mov.debe;
+      }
+    });
+  });
+
+  if (capital === 0) {
+    let ingresos = 0;
+    let gastos = 0;
+    asientos.forEach(asiento => {
+      asiento.movimientos.forEach(mov => {
+        if (mov.cuenta === 'Ventas') ingresos += mov.haber - mov.debe;
+        else if (mov.cuenta === 'Costo de Ventas') gastos += mov.debe - mov.haber;
+        else if (mov.cuenta.includes('Gasto')) gastos += mov.debe - mov.haber;
+      });
+    });
+    capital = ingresos - gastos;
+  }
+
+  const totalPasivoCapital = pasivo + capital;
+
+  let html = `
+    <h3 style="margin-bottom:16px;">🏦 Balance General</h3>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; max-width:600px; margin:0 auto;">
+      <div style="background:var(--glass-bg); padding:16px; border-radius:12px; border:1px solid var(--border-color);">
+        <h4 style="color:var(--gold);">Activos</h4>
+        <div style="font-size:2rem; font-weight:bold;">${window.formatearUSD(activo)}</div>
+        <div style="font-size:0.85rem; color:var(--text-secondary);">Recursos de la empresa</div>
+      </div>
+      <div style="background:var(--glass-bg); padding:16px; border-radius:12px; border:1px solid var(--border-color);">
+        <h4 style="color:var(--gold);">Pasivo + Capital</h4>
+        <div style="font-size:2rem; font-weight:bold;">${window.formatearUSD(totalPasivoCapital)}</div>
+        <div style="font-size:0.85rem; color:var(--text-secondary);">
+          Pasivo: ${window.formatearUSD(pasivo)} | Capital: ${window.formatearUSD(capital)}
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top:16px; padding:12px; background:${Math.abs(activo - totalPasivoCapital) < 0.01 ? 'rgba(46,204,113,0.2)' : 'rgba(231,76,60,0.2)'}; border-radius:8px;">
+      <strong>${Math.abs(activo - totalPasivoCapital) < 0.01 ? '✅' : '⚠️'} Ecuación contable:</strong>
+      Activo (${window.formatearUSD(activo)}) ${Math.abs(activo - totalPasivoCapital) < 0.01 ? '=' : '≠'} 
+      Pasivo + Capital (${window.formatearUSD(totalPasivoCapital)})
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+// ==========================================
 //  FUNCIONES DE CÁLCULO PARA RECOMENDACIONES E INVENTARIO
 // ==========================================
 function calcularRotacion(p) {
@@ -563,7 +875,6 @@ function calcularPrioridad(p) {
 // ==========================================
 //  ACCIONES RÁPIDAS (ventas, preguntas, redes, eliminar)
 // ==========================================
-
 window.registrarVenta = function(id) {
   const cantidad = prompt('¿Cuántas unidades se vendieron?', '1');
   if (cantidad === null) return;
@@ -574,12 +885,41 @@ window.registrarVenta = function(id) {
   prod.ventasRegistradas = prod.ventasRegistradas || [];
   prod.ventasRegistradas.push({ cantidad: cant, fecha: new Date().toISOString() });
   window.guardarProductos();
-  
-  // Actualizar según la pestaña actual
+
+  // Asientos contables de venta
+  const ingreso = cant * prod.precioVentaSugerido;
+  const costo = cant * prod.costoUnitarioTotal;
+  const asientoVenta = {
+    id: window.generarId(),
+    fecha: new Date().toISOString(),
+    descripcion: `Venta de ${cant} unidades de ${prod.nombre} (SKU: ${prod.sku})`,
+    tipo: 'venta',
+    movimientos: [
+      { cuenta: 'Banco', debe: ingreso, haber: 0 },
+      { cuenta: 'Ventas', debe: 0, haber: ingreso }
+    ],
+    referencia: prod.id
+  };
+  window.agregarAsiento(asientoVenta);
+
+  const asientoCosto = {
+    id: window.generarId(),
+    fecha: new Date().toISOString(),
+    descripcion: `Costo de venta de ${cant} unidades de ${prod.nombre}`,
+    tipo: 'costo',
+    movimientos: [
+      { cuenta: 'Costo de Ventas', debe: costo, haber: 0 },
+      { cuenta: 'Inventario', debe: 0, haber: costo }
+    ],
+    referencia: prod.id
+  };
+  window.agregarAsiento(asientoCosto);
+
   const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
   if (currentTab === 'recomendaciones') renderizarRecomendaciones();
   else if (currentTab === 'inventario') renderizarInventario();
-  
+  else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
+
   alert(`✅ Venta registrada. Total vendido: ${prod.totalVendido} unidades.`);
 };
 
@@ -591,11 +931,12 @@ window.registrarPregunta = function(id) {
   const cant = parseInt(cantidad) || 1;
   prod.preguntasRegistradas = (prod.preguntasRegistradas || 0) + cant;
   window.guardarProductos();
-  
+
   const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
   if (currentTab === 'recomendaciones') renderizarRecomendaciones();
   else if (currentTab === 'inventario') renderizarInventario();
-  
+  else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
+
   alert(`✅ Preguntas registradas. Total: ${prod.preguntasRegistradas}.`);
 };
 
@@ -625,11 +966,12 @@ window.actualizarRedes = function(id) {
     marketplace: { likes: parseInt(mktLikes)||0, comentarios: parseInt(mktCom)||0, compartidos: parseInt(mktShare)||0, alcance: parseInt(mktAlc)||100 }
   };
   window.guardarProductos();
-  
+
   const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
   if (currentTab === 'recomendaciones') renderizarRecomendaciones();
   else if (currentTab === 'inventario') renderizarInventario();
-  
+  else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
+
   alert('✅ Métricas de redes actualizadas correctamente.');
 };
 
@@ -637,40 +979,24 @@ window.eliminarProducto = function(id) {
   if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
   window.productos = window.productos.filter(p => p.id !== id);
   window.guardarProductos();
-  
+
   const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
   if (currentTab === 'recomendaciones') renderizarRecomendaciones();
   else if (currentTab === 'inventario') renderizarInventario();
+  else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
 };
-
-// ==========================================
-//  FUNCIONES DE CÁLCULO PARA RECOMENDACIONES E INVENTARIO
-// ==========================================
-
-function calcularRotacion(p) {
-  const dias = Math.max(1, (Date.now() - new Date(p.fechaLlegada).getTime()) / (1000 * 60 * 60 * 24));
-  return (p.totalVendido || 0) / dias * 30;
-}
-
-function calcularTasaConversion(p) {
-  const preguntas = p.preguntasRegistradas || 1;
-  return ((p.totalVendido || 0) / preguntas) * 100;
-}
-
-function calcularPrioridad(p) {
-  const rotacion = calcularRotacion(p);
-  const engagement = window.calcularEngagementPromedio(p.interacciones || {});
-  const tasaConversion = calcularTasaConversion(p);
-  return window.calcularIndicePrioridad(p.costoUnitarioTotal, rotacion, engagement, tasaConversion);
-}
 
 // ==========================================
 //  INICIALIZACIÓN GENERAL
 // ==========================================
-
 document.addEventListener('DOMContentLoaded', function() {
   // Cargar datos
   window.cargarDatos();
+
+  // Si no hay asientos, generarlos desde productos
+  if (window.asientos.length === 0) {
+    window.generarAsientosIniciales();
+  }
 
   // Configurar navegación por tabs
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -679,12 +1005,24 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  // Menú hamburguesa
+  const hamburger = document.getElementById('hamburgerBtn');
+  if (hamburger) {
+    hamburger.addEventListener('click', toggleMenu);
+  }
+
+  // Cerrar menú al hacer clic en una pestaña (móvil)
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', closeMenu);
+  });
+
   // Botón refrescar (header)
   document.getElementById('btnRefresh').addEventListener('click', () => {
     window.cargarDatos();
     const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
     if (currentTab === 'recomendaciones') renderizarRecomendaciones();
     else if (currentTab === 'inventario') renderizarInventario();
+    else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
     alert('✅ Datos actualizados desde localStorage.');
   });
 
