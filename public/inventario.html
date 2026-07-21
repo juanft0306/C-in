@@ -8,19 +8,19 @@
     <span class="badge" id="stockCount">0 unidades</span>
   </div>
 
-  <!-- Resumen del inventario -->
-  <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px; background:var(--bg-input); padding:16px; border-radius:12px;">
+  <!-- Resumen -->
+  <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; background:var(--glass-bg); padding:12px 16px; border-radius:12px; border:1px solid var(--border-color);">
     <div>
-      <span style="color:var(--text-secondary); font-size:0.8rem;">Valor total del inventario</span>
-      <div style="font-size:1.5rem; font-weight:700; color:var(--gold);" id="valorTotal">$0.00</div>
+      <span style="color:var(--text-secondary); font-size:0.7rem;">Valor total</span>
+      <div style="font-size:1.3rem; font-weight:700; color:var(--gold);" id="valorTotal">$0.00</div>
     </div>
     <div>
-      <span style="color:var(--text-secondary); font-size:0.8rem;">Total de productos</span>
-      <div style="font-size:1.5rem; font-weight:700;" id="totalProductos">0</div>
+      <span style="color:var(--text-secondary); font-size:0.7rem;">Productos distintos</span>
+      <div style="font-size:1.3rem; font-weight:700;" id="totalProductos">0</div>
     </div>
   </div>
 
-  <!-- Lista de productos agrupados por SKU -->
+  <!-- Tabla de inventario -->
   <div id="inventarioContainer">
     <div class="empty-state">
       <i class="fas fa-boxes"></i>
