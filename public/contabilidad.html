@@ -1,0 +1,26 @@
+<!-- ========================================== -->
+<!-- PANTALLA: CONTABILIDAD                      -->
+<!-- ========================================== -->
+
+<div class="card">
+  <div class="card-header">
+    <h2><i class="fas fa-book"></i> Contabilidad</h2>
+    <span class="badge" id="asientosCount">0 asientos</span>
+  </div>
+
+  <!-- Navegación interna (tabs de contabilidad) -->
+  <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; background:var(--bg-input); padding:6px; border-radius:10px;">
+    <button class="btn btn-small contab-tab active" data-contab="diario">📖 Libro Diario</button>
+    <button class="btn btn-small contab-tab" data-contab="mayor">📊 Libro Mayor</button>
+    <button class="btn btn-small contab-tab" data-contab="resultados">📈 Balance de Resultados</button>
+    <button class="btn btn-small contab-tab" data-contab="general">🏦 Balance General</button>
+  </div>
+
+  <!-- Contenido dinámico de contabilidad -->
+  <div id="contabilidadContainer">
+    <div class="empty-state">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Cargando información contable...</p>
+    </div>
+  </div>
+</div>
