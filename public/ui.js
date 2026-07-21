@@ -329,6 +329,9 @@ function configurarEventosRegistro() {
     document.getElementById('valorPrecio').value = '40';
 
     alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
+    
+    // Actualizar contabilidad si está visible
+    actualizarContabilidadSiActiva();
   });
 
   addGastoBtn.addEventListener('click', () => agregarGasto());
@@ -336,7 +339,7 @@ function configurarEventosRegistro() {
 }
 
 // ==========================================
-//  PANTALLA DE RECOMENDACIONES
+//  PANTALLA DE RECOMENDACIONES (CON PUNTO DE EQUILIBRIO)
 // ==========================================
 function inicializarRecomendaciones() {
   productList = document.getElementById('productList');
@@ -399,6 +402,30 @@ function renderizarRecomendaciones() {
     const precioData = window.calcularPrecioVenta(p.costoUnitarioTotal, 'porcentaje', p.margenGanancia || 40);
     const emoji = window.getEmojiRecomendacion(prioridad.recomendacion);
     const colorPrioridad = prioridad.indice > 70 ? '#2ecc71' : (prioridad.indice > 40 ? '#f1c40f' : '#e74c3c');
+    
+    // ===== CÁLCULO DE PUNTO DE EQUILIBRIO =====
+    const costoTotalInvertido = p.costoUnitarioTotal * p.cantidadImportada;
+    const margenUnitario = p.precioVentaSugerido - p.costoUnitarioTotal;
+    let puntoEquilibrio = 0;
+    let estadoInversion = '';
+    let textoEquilibrio = '';
+    
+    if (margenUnitario > 0) {
+      puntoEquilibrio = Math.ceil(costoTotalInvertido / margenUnitario);
+      const vendido = p.totalVendido || 0;
+      if (vendido >= puntoEquilibrio) {
+        estadoInversion = '✅ Inversión recuperada';
+        textoEquilibrio = `(${vendido}/${puntoEquilibrio} vendidas)`;
+      } else {
+        const faltan = puntoEquilibrio - vendido;
+        estadoInversion = `❌ Faltan ${faltan} ventas`;
+        textoEquilibrio = `(${vendido}/${puntoEquilibrio} vendidas)`;
+      }
+    } else {
+      puntoEquilibrio = Infinity;
+      estadoInversion = '⚠️ Margen negativo';
+      textoEquilibrio = 'No se puede recuperar';
+    }
 
     html += `
       <div class="product-item" data-id="${p.id}">
@@ -418,6 +445,15 @@ function renderizarRecomendaciones() {
         <div class="metric"><span class="label">📱 Engagement promedio</span><span class="value">${window.calcularEngagementPromedio(p.interacciones || {}).toFixed(2)}%</span></div>
         <div class="metric"><span class="label">🗣️ Tasa conversión</span><span class="value">${calcularTasaConversion(p).toFixed(1)}%</span></div>
         <div class="metric"><span class="label">📊 Prioridad</span><span class="value" style="color:${colorPrioridad};">${prioridad.indice}/100</span></div>
+        <div class="metric" style="grid-column: 1 / -1; background: var(--glass-bg); padding: 8px 12px; border-radius: 8px; margin-top: 4px; border: 1px solid var(--border-color);">
+          <span class="label">🎯 Punto de equilibrio</span>
+          <span class="value" style="font-size: 0.95rem;">
+            ${puntoEquilibrio === Infinity ? '⚠️ No calculable' : `${puntoEquilibrio} unidades`}
+            <span class="small" style="display: block; font-size: 0.8rem; color: ${estadoInversion.includes('recuperada') ? '#2ecc71' : '#e74c3c'};">
+              ${estadoInversion} ${textoEquilibrio}
+            </span>
+          </span>
+        </div>
         <div class="product-actions">
           <button class="btn-small" onclick="window.registrarVenta('${p.id}')"><i class="fas fa-shopping-cart"></i> Vender</button>
           <button class="btn-small" onclick="window.registrarPregunta('${p.id}')"><i class="fas fa-question-circle"></i> Preguntaron</button>
@@ -538,19 +574,20 @@ function renderizarInventario() {
           </div>
         </div>
         <div class="inventario-lotes">
-          <table class="lotes-table">
-            <thead>
-              <tr>
-                <th>Lote</th>
-                <th>Fecha</th>
-                <th>Comprados</th>
-                <th>Vendidos</th>
-                <th>Stock</th>
-                <th>Costo unit.</th>
-                <th>Valor stock</th>
-              </tr>
-            </thead>
-            <tbody>
+          <div class="table-wrapper">
+            <table class="lotes-table">
+              <thead>
+                <tr>
+                  <th>Lote</th>
+                  <th>Fecha</th>
+                  <th>Comprados</th>
+                  <th>Vendidos</th>
+                  <th>Stock</th>
+                  <th>Costo unit.</th>
+                  <th>Valor stock</th>
+                </tr>
+              </thead>
+              <tbody>
     `;
 
     grupo.lotes.forEach(lote => {
@@ -570,8 +607,9 @@ function renderizarInventario() {
     });
 
     html += `
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     `;
@@ -630,6 +668,167 @@ function renderizarContabilidad(vista) {
   }
 }
 
+// ==========================================
+//  FUNCIÓN PARA ACTUALIZAR CONTABILIDAD (desde cualquier lugar)
+// ==========================================
+function actualizarContabilidadSiActiva() {
+  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+  if (currentTab === 'contabilidad') {
+    const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
+    renderizarContabilidad(contabActiva);
+    console.log('🔄 Contabilidad actualizada automáticamente');
+  }
+}
+
+// ==========================================
+//  FUNCIONES DE CÁLCULO PARA RECOMENDACIONES E INVENTARIO
+// ==========================================
+function calcularRotacion(p) {
+  const dias = Math.max(1, (Date.now() - new Date(p.fechaLlegada).getTime()) / (1000 * 60 * 60 * 24));
+  return (p.totalVendido || 0) / dias * 30;
+}
+
+function calcularTasaConversion(p) {
+  const preguntas = p.preguntasRegistradas || 1;
+  return ((p.totalVendido || 0) / preguntas) * 100;
+}
+
+function calcularPrioridad(p) {
+  const rotacion = calcularRotacion(p);
+  const engagement = window.calcularEngagementPromedio(p.interacciones || {});
+  const tasaConversion = calcularTasaConversion(p);
+  return window.calcularIndicePrioridad(p.costoUnitarioTotal, rotacion, engagement, tasaConversion);
+}
+
+// ==========================================
+//  ACCIONES RÁPIDAS (ventas, preguntas, redes, eliminar)
+// ==========================================
+window.registrarVenta = function(id) {
+  const cantidad = prompt('¿Cuántas unidades se vendieron?', '1');
+  if (cantidad === null) return;
+  const prod = window.productos.find(p => p.id === id);
+  if (!prod) return alert('Producto no encontrado');
+  const cant = parseInt(cantidad) || 1;
+  prod.totalVendido = (prod.totalVendido || 0) + cant;
+  prod.ventasRegistradas = prod.ventasRegistradas || [];
+  prod.ventasRegistradas.push({ cantidad: cant, fecha: new Date().toISOString() });
+  window.guardarProductos();
+
+  // Asientos contables de venta
+  const ingreso = cant * prod.precioVentaSugerido;
+  const costo = cant * prod.costoUnitarioTotal;
+  const asientoVenta = {
+    id: window.generarId(),
+    fecha: new Date().toISOString(),
+    descripcion: `Venta de ${cant} unidades de ${prod.nombre} (SKU: ${prod.sku})`,
+    tipo: 'venta',
+    movimientos: [
+      { cuenta: 'Banco', debe: ingreso, haber: 0 },
+      { cuenta: 'Ventas', debe: 0, haber: ingreso }
+    ],
+    referencia: prod.id
+  };
+  window.agregarAsiento(asientoVenta);
+
+  const asientoCosto = {
+    id: window.generarId(),
+    fecha: new Date().toISOString(),
+    descripcion: `Costo de venta de ${cant} unidades de ${prod.nombre}`,
+    tipo: 'costo',
+    movimientos: [
+      { cuenta: 'Costo de Ventas', debe: costo, haber: 0 },
+      { cuenta: 'Inventario', debe: 0, haber: costo }
+    ],
+    referencia: prod.id
+  };
+  window.agregarAsiento(asientoCosto);
+
+  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+  else if (currentTab === 'inventario') renderizarInventario();
+  else if (currentTab === 'contabilidad') {
+    const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
+    renderizarContabilidad(contabActiva);
+  }
+
+  alert(`✅ Venta registrada. Total vendido: ${prod.totalVendido} unidades.`);
+};
+
+window.registrarPregunta = function(id) {
+  const cantidad = prompt('¿Cuántas preguntas recibiste?', '1');
+  if (cantidad === null) return;
+  const prod = window.productos.find(p => p.id === id);
+  if (!prod) return alert('Producto no encontrado');
+  const cant = parseInt(cantidad) || 1;
+  prod.preguntasRegistradas = (prod.preguntasRegistradas || 0) + cant;
+  window.guardarProductos();
+
+  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+  else if (currentTab === 'inventario') renderizarInventario();
+  else if (currentTab === 'contabilidad') {
+    const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
+    renderizarContabilidad(contabActiva);
+  }
+
+  alert(`✅ Preguntas registradas. Total: ${prod.preguntasRegistradas}.`);
+};
+
+window.actualizarRedes = function(id) {
+  const prod = window.productos.find(p => p.id === id);
+  if (!prod) return alert('Producto no encontrado');
+  const datos = prod.interacciones || { instagram: {}, tiktok: {}, marketplace: {} };
+  const instaLikes = prompt('Instagram - Likes:', datos.instagram?.likes || 0);
+  if (instaLikes === null) return;
+  const instaCom = prompt('Instagram - Comentarios:', datos.instagram?.comentarios || 0);
+  const instaShare = prompt('Instagram - Compartidos:', datos.instagram?.compartidos || 0);
+  const instaAlc = prompt('Instagram - Alcance:', datos.instagram?.alcance || 100);
+
+  const ttkLikes = prompt('TikTok - Likes:', datos.tiktok?.likes || 0);
+  const ttkCom = prompt('TikTok - Comentarios:', datos.tiktok?.comentarios || 0);
+  const ttkShare = prompt('TikTok - Compartidos:', datos.tiktok?.compartidos || 0);
+  const ttkAlc = prompt('TikTok - Alcance:', datos.tiktok?.alcance || 100);
+
+  const mktLikes = prompt('Marketplace - Likes:', datos.marketplace?.likes || 0);
+  const mktCom = prompt('Marketplace - Comentarios:', datos.marketplace?.comentarios || 0);
+  const mktShare = prompt('Marketplace - Compartidos:', datos.marketplace?.compartidos || 0);
+  const mktAlc = prompt('Marketplace - Alcance:', datos.marketplace?.alcance || 100);
+
+  prod.interacciones = {
+    instagram: { likes: parseInt(instaLikes)||0, comentarios: parseInt(instaCom)||0, compartidos: parseInt(instaShare)||0, alcance: parseInt(instaAlc)||100 },
+    tiktok: { likes: parseInt(ttkLikes)||0, comentarios: parseInt(ttkCom)||0, compartidos: parseInt(ttkShare)||0, alcance: parseInt(ttkAlc)||100 },
+    marketplace: { likes: parseInt(mktLikes)||0, comentarios: parseInt(mktCom)||0, compartidos: parseInt(mktShare)||0, alcance: parseInt(mktAlc)||100 }
+  };
+  window.guardarProductos();
+
+  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+  else if (currentTab === 'inventario') renderizarInventario();
+  else if (currentTab === 'contabilidad') {
+    const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
+    renderizarContabilidad(contabActiva);
+  }
+
+  alert('✅ Métricas de redes actualizadas correctamente.');
+};
+
+window.eliminarProducto = function(id) {
+  if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
+  window.productos = window.productos.filter(p => p.id !== id);
+  window.guardarProductos();
+
+  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+  else if (currentTab === 'inventario') renderizarInventario();
+  else if (currentTab === 'contabilidad') {
+    const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
+    renderizarContabilidad(contabActiva);
+  }
+};
+
+// ==========================================
+//  FUNCIONES DE RENDERIZADO DE CONTABILIDAD (libro diario, mayor, etc.)
+// ==========================================
 function renderizarLibroDiario(container) {
   const asientos = window.asientos || [];
   if (asientos.length === 0) {
@@ -645,7 +844,7 @@ function renderizarLibroDiario(container) {
 
   let html = `
     <h3 style="margin-bottom:16px;">📖 Libro Diario</h3>
-    <div style="overflow-x:auto;">
+    <div class="table-wrapper">
       <table class="contabilidad-table">
         <thead>
           <tr>
@@ -853,144 +1052,10 @@ function renderizarBalanceGeneral(container) {
 }
 
 // ==========================================
-//  FUNCIONES DE CÁLCULO PARA RECOMENDACIONES E INVENTARIO
-// ==========================================
-function calcularRotacion(p) {
-  const dias = Math.max(1, (Date.now() - new Date(p.fechaLlegada).getTime()) / (1000 * 60 * 60 * 24));
-  return (p.totalVendido || 0) / dias * 30;
-}
-
-function calcularTasaConversion(p) {
-  const preguntas = p.preguntasRegistradas || 1;
-  return ((p.totalVendido || 0) / preguntas) * 100;
-}
-
-function calcularPrioridad(p) {
-  const rotacion = calcularRotacion(p);
-  const engagement = window.calcularEngagementPromedio(p.interacciones || {});
-  const tasaConversion = calcularTasaConversion(p);
-  return window.calcularIndicePrioridad(p.costoUnitarioTotal, rotacion, engagement, tasaConversion);
-}
-
-// ==========================================
-//  ACCIONES RÁPIDAS (ventas, preguntas, redes, eliminar)
-// ==========================================
-window.registrarVenta = function(id) {
-  const cantidad = prompt('¿Cuántas unidades se vendieron?', '1');
-  if (cantidad === null) return;
-  const prod = window.productos.find(p => p.id === id);
-  if (!prod) return alert('Producto no encontrado');
-  const cant = parseInt(cantidad) || 1;
-  prod.totalVendido = (prod.totalVendido || 0) + cant;
-  prod.ventasRegistradas = prod.ventasRegistradas || [];
-  prod.ventasRegistradas.push({ cantidad: cant, fecha: new Date().toISOString() });
-  window.guardarProductos();
-
-  // Asientos contables de venta
-  const ingreso = cant * prod.precioVentaSugerido;
-  const costo = cant * prod.costoUnitarioTotal;
-  const asientoVenta = {
-    id: window.generarId(),
-    fecha: new Date().toISOString(),
-    descripcion: `Venta de ${cant} unidades de ${prod.nombre} (SKU: ${prod.sku})`,
-    tipo: 'venta',
-    movimientos: [
-      { cuenta: 'Banco', debe: ingreso, haber: 0 },
-      { cuenta: 'Ventas', debe: 0, haber: ingreso }
-    ],
-    referencia: prod.id
-  };
-  window.agregarAsiento(asientoVenta);
-
-  const asientoCosto = {
-    id: window.generarId(),
-    fecha: new Date().toISOString(),
-    descripcion: `Costo de venta de ${cant} unidades de ${prod.nombre}`,
-    tipo: 'costo',
-    movimientos: [
-      { cuenta: 'Costo de Ventas', debe: costo, haber: 0 },
-      { cuenta: 'Inventario', debe: 0, haber: costo }
-    ],
-    referencia: prod.id
-  };
-  window.agregarAsiento(asientoCosto);
-
-  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
-  else if (currentTab === 'inventario') renderizarInventario();
-  else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
-
-  alert(`✅ Venta registrada. Total vendido: ${prod.totalVendido} unidades.`);
-};
-
-window.registrarPregunta = function(id) {
-  const cantidad = prompt('¿Cuántas preguntas recibiste?', '1');
-  if (cantidad === null) return;
-  const prod = window.productos.find(p => p.id === id);
-  if (!prod) return alert('Producto no encontrado');
-  const cant = parseInt(cantidad) || 1;
-  prod.preguntasRegistradas = (prod.preguntasRegistradas || 0) + cant;
-  window.guardarProductos();
-
-  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
-  else if (currentTab === 'inventario') renderizarInventario();
-  else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
-
-  alert(`✅ Preguntas registradas. Total: ${prod.preguntasRegistradas}.`);
-};
-
-window.actualizarRedes = function(id) {
-  const prod = window.productos.find(p => p.id === id);
-  if (!prod) return alert('Producto no encontrado');
-  const datos = prod.interacciones || { instagram: {}, tiktok: {}, marketplace: {} };
-  const instaLikes = prompt('Instagram - Likes:', datos.instagram?.likes || 0);
-  if (instaLikes === null) return;
-  const instaCom = prompt('Instagram - Comentarios:', datos.instagram?.comentarios || 0);
-  const instaShare = prompt('Instagram - Compartidos:', datos.instagram?.compartidos || 0);
-  const instaAlc = prompt('Instagram - Alcance:', datos.instagram?.alcance || 100);
-
-  const ttkLikes = prompt('TikTok - Likes:', datos.tiktok?.likes || 0);
-  const ttkCom = prompt('TikTok - Comentarios:', datos.tiktok?.comentarios || 0);
-  const ttkShare = prompt('TikTok - Compartidos:', datos.tiktok?.compartidos || 0);
-  const ttkAlc = prompt('TikTok - Alcance:', datos.tiktok?.alcance || 100);
-
-  const mktLikes = prompt('Marketplace - Likes:', datos.marketplace?.likes || 0);
-  const mktCom = prompt('Marketplace - Comentarios:', datos.marketplace?.comentarios || 0);
-  const mktShare = prompt('Marketplace - Compartidos:', datos.marketplace?.compartidos || 0);
-  const mktAlc = prompt('Marketplace - Alcance:', datos.marketplace?.alcance || 100);
-
-  prod.interacciones = {
-    instagram: { likes: parseInt(instaLikes)||0, comentarios: parseInt(instaCom)||0, compartidos: parseInt(instaShare)||0, alcance: parseInt(instaAlc)||100 },
-    tiktok: { likes: parseInt(ttkLikes)||0, comentarios: parseInt(ttkCom)||0, compartidos: parseInt(ttkShare)||0, alcance: parseInt(ttkAlc)||100 },
-    marketplace: { likes: parseInt(mktLikes)||0, comentarios: parseInt(mktCom)||0, compartidos: parseInt(mktShare)||0, alcance: parseInt(mktAlc)||100 }
-  };
-  window.guardarProductos();
-
-  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
-  else if (currentTab === 'inventario') renderizarInventario();
-  else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
-
-  alert('✅ Métricas de redes actualizadas correctamente.');
-};
-
-window.eliminarProducto = function(id) {
-  if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
-  window.productos = window.productos.filter(p => p.id !== id);
-  window.guardarProductos();
-
-  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
-  else if (currentTab === 'inventario') renderizarInventario();
-  else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
-};
-
-// ==========================================
 //  INICIALIZACIÓN GENERAL
 // ==========================================
 document.addEventListener('DOMContentLoaded', function() {
-  // Cargar datos
+  // Cargar datos (esto asigna los arrays globales)
   window.cargarDatos();
 
   // Si no hay asientos, generarlos desde productos
@@ -1022,7 +1087,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
     if (currentTab === 'recomendaciones') renderizarRecomendaciones();
     else if (currentTab === 'inventario') renderizarInventario();
-    else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
+    else if (currentTab === 'contabilidad') {
+      const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
+      renderizarContabilidad(contabActiva);
+    }
     alert('✅ Datos actualizados desde localStorage.');
   });
 
