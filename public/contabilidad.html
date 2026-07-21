@@ -8,15 +8,15 @@
     <span class="badge" id="asientosCount">0 asientos</span>
   </div>
 
-  <!-- Navegación interna (tabs de contabilidad) -->
-  <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; background:var(--bg-input); padding:6px; border-radius:10px;">
-    <button class="btn btn-small contab-tab active" data-contab="diario">📖 Libro Diario</button>
-    <button class="btn btn-small contab-tab" data-contab="mayor">📊 Libro Mayor</button>
-    <button class="btn btn-small contab-tab" data-contab="resultados">📈 Balance de Resultados</button>
-    <button class="btn btn-small contab-tab" data-contab="general">🏦 Balance General</button>
+  <!-- Tabs internos (con scroll horizontal) -->
+  <div class="contab-tabs" style="display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; margin-bottom:16px; background:var(--glass-bg); padding:6px; border-radius:12px; border:1px solid var(--border-color);">
+    <button class="btn btn-small contab-tab active" data-contab="diario">📖 Diario</button>
+    <button class="btn btn-small contab-tab" data-contab="mayor">📊 Mayor</button>
+    <button class="btn btn-small contab-tab" data-contab="resultados">📈 Resultados</button>
+    <button class="btn btn-small contab-tab" data-contab="general">🏦 General</button>
   </div>
 
-  <!-- Contenido dinámico de contabilidad -->
+  <!-- Contenido dinámico -->
   <div id="contabilidadContainer">
     <div class="empty-state">
       <i class="fas fa-spinner fa-spin"></i>
