@@ -114,42 +114,73 @@ function calcularIndicePrioridad(costoUnitario, rotacionMensual, engagementProme
 //  PERSISTENCIA EN LOCALSTORAGE
 // ==========================================
 function cargarDatos() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    productos = JSON.parse(stored);
-  } else {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      productos = JSON.parse(stored);
+    } else {
+      productos = [];
+    }
+    const storedLotes = localStorage.getItem(LOTES_KEY);
+    if (storedLotes) {
+      lotes = JSON.parse(storedLotes);
+    } else {
+      lotes = [];
+    }
+    const storedAsientos = localStorage.getItem(ASIENTOS_KEY);
+    if (storedAsientos) {
+      asientos = JSON.parse(storedAsientos);
+    } else {
+      asientos = [];
+    }
+    
+    // Sincronizar variables globales
+    window.productos = productos;
+    window.lotes = lotes;
+    window.asientos = asientos;
+    
+    console.log(`✅ Datos cargados: ${productos.length} productos, ${asientos.length} asientos`);
+  } catch (error) {
+    console.error('❌ Error al cargar datos:', error);
     productos = [];
-  }
-  const storedLotes = localStorage.getItem(LOTES_KEY);
-  if (storedLotes) {
-    lotes = JSON.parse(storedLotes);
-  } else {
     lotes = [];
-  }
-  const storedAsientos = localStorage.getItem(ASIENTOS_KEY);
-  if (storedAsientos) {
-    asientos = JSON.parse(storedAsientos);
-  } else {
     asientos = [];
+    window.productos = productos;
+    window.lotes = lotes;
+    window.asientos = asientos;
   }
 }
 
 function guardarProductos() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(productos));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(productos));
+    window.productos = productos;
+    console.log(`✅ ${productos.length} productos guardados en localStorage`);
+  } catch (error) {
+    console.error('❌ Error al guardar productos:', error);
+  }
 }
 
 function guardarLote(loteData) {
   lotes.push(loteData);
   localStorage.setItem(LOTES_KEY, JSON.stringify(lotes));
+  window.lotes = lotes;
 }
 
 function guardarAsientos() {
-  localStorage.setItem(ASIENTOS_KEY, JSON.stringify(asientos));
+  try {
+    localStorage.setItem(ASIENTOS_KEY, JSON.stringify(asientos));
+    window.asientos = asientos;
+    console.log(`✅ ${asientos.length} asientos guardados en localStorage`);
+  } catch (error) {
+    console.error('❌ Error al guardar asientos:', error);
+  }
 }
 
 function agregarAsiento(asiento) {
   asientos.push(asiento);
   guardarAsientos();
+  window.asientos = asientos;
 }
 
 // ==========================================
@@ -231,9 +262,13 @@ function generarAsientosIniciales() {
       }
     });
   }
+  
+  console.log(`✅ Generados ${asientos.length} asientos iniciales`);
 }
 
-// Exportar al ámbito global para ui.js
+// ==========================================
+//  EXPORTAR AL ÁMBITO GLOBAL
+// ==========================================
 window.productos = productos;
 window.lotes = lotes;
 window.asientos = asientos;
@@ -251,3 +286,5 @@ window.guardarLote = guardarLote;
 window.agregarAsiento = agregarAsiento;
 window.guardarAsientos = guardarAsientos;
 window.generarAsientosIniciales = generarAsientosIniciales;
+
+console.log('✅ Core cargado correctamente');
