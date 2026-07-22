@@ -75,7 +75,8 @@ function calcularPrecioVenta(costoUnitario, modo, valor) {
       precioVenta = valor;
       margenGanancia = ((precioVenta - costoUnitario) / precioVenta) * 100;
       break;
-    default: throw new Error('Modo no válido');
+    default:
+      throw new Error('Modo no válido');
   }
   return {
     precioVenta: parseFloat(precioVenta.toFixed(2)),
@@ -92,7 +93,8 @@ function calcularEngagementPromedio(interacciones) {
     return (total / data.alcance) * 100;
   };
   const er = [instagram, tiktok, marketplace].map(calcularER);
-  return parseFloat((er.reduce((a, b) => a + b, 0) / er.length).toFixed(2));
+  const promedio = er.reduce((a, b) => a + b, 0) / er.length;
+  return parseFloat(promedio.toFixed(2));
 }
 
 function calcularIndicePrioridad(costoUnitario, rotacionMensual, engagementPromedio, tasaConversion, frecuenciaVentas) {
@@ -101,10 +103,13 @@ function calcularIndicePrioridad(costoUnitario, rotacionMensual, engagementProme
   const engagementNorm = Math.min(1, engagementPromedio / 10);
   const conversionNorm = Math.min(1, tasaConversion / 50);
   let frecuenciaNorm = 0;
-  if (frecuenciaVentas > 0 && frecuenciaVentas < 30) frecuenciaNorm = Math.max(0, 1 - (frecuenciaVentas / 15));
-  else if (frecuenciaVentas === 0) frecuenciaNorm = 0;
-  else frecuenciaNorm = 0.2;
-  
+  if (frecuenciaVentas > 0 && frecuenciaVentas < 30) {
+    frecuenciaNorm = Math.max(0, 1 - (frecuenciaVentas / 15));
+  } else if (frecuenciaVentas === 0) {
+    frecuenciaNorm = 0;
+  } else {
+    frecuenciaNorm = 0.2;
+  }
   const puntaje = (costoNorm * -0.25) + (rotacionNorm * 0.35) + (engagementNorm * 0.15) + (conversionNorm * 0.1) + (frecuenciaNorm * 0.15);
   const indice = Math.max(0, Math.min(100, (puntaje + 0.5) * 100));
   return {
@@ -118,7 +123,9 @@ function calcularIndicePrioridad(costoUnitario, rotacionMensual, engagementProme
 // ==========================================
 function inicializarEstacionalidad() {
   const meses = {};
-  for (let i = 1; i <= 12; i++) meses[i] = { ventas: 0, preguntas: 0, interacciones: 0 };
+  for (let i = 1; i <= 12; i++) {
+    meses[i] = { ventas: 0, preguntas: 0, interacciones: 0 };
+  }
   return meses;
 }
 
@@ -144,7 +151,7 @@ function obtenerRecomendacionMes(objeto) {
   const mejor = puntajes[0];
   const peor = puntajes[puntajes.length - 1];
   if (mejor.total === 0) return { mejor: null, peor: null, mensaje: 'Sin actividad' };
-  const mesesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   return {
     mejor: { mes: mejor.mes, nombre: mesesNombres[mejor.mes - 1], puntaje: mejor.total },
     peor: { mes: peor.mes, nombre: mesesNombres[peor.mes - 1], puntaje: peor.total },
@@ -153,6 +160,7 @@ function obtenerRecomendacionMes(objeto) {
 }
 
 function migrarEstacionalidad() {
+  // Productos
   productos.forEach(p => {
     if (!p.estacionalidad) p.estacionalidad = inicializarEstacionalidad();
     if (Array.isArray(p.ventasRegistradas)) {
@@ -163,6 +171,8 @@ function migrarEstacionalidad() {
     }
   });
   guardarProductos();
+
+  // Sondeos
   sondeos.forEach(s => {
     if (!s.estacionalidad) s.estacionalidad = inicializarEstacionalidad();
     if (Array.isArray(s.historial)) {
@@ -180,71 +190,169 @@ function migrarEstacionalidad() {
 // ==========================================
 function cargarDatos() {
   try {
-    productos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    productos = productos.map(p => {
-      if (!Array.isArray(p.ventasRegistradas)) {
-        if (typeof p.ventasRegistradas === 'number') {
-          const total = p.ventasRegistradas;
-          p.ventasRegistradas = total > 0 ? [{ cantidad: total, fecha: p.fechaLlegada || new Date().toISOString() }] : [];
-        } else p.ventasRegistradas = [];
-      }
-      if (!Array.isArray(p.preguntasRegistradas)) {
-        if (typeof p.preguntasRegistradas === 'number') {
-          const total = p.preguntasRegistradas;
-          p.preguntasRegistradas = total > 0 ? [{ cantidad: total, fecha: new Date().toISOString() }] : [];
-        } else p.preguntasRegistradas = [];
-      }
-      if (p.totalVendido === undefined) p.totalVendido = p.ventasRegistradas.reduce((sum, v) => sum + v.cantidad, 0);
-      if (!Array.isArray(p.competidores)) p.competidores = [];
-      if (!p.estacionalidad) p.estacionalidad = inicializarEstacionalidad();
-      return p;
-    });
-    lotes = JSON.parse(localStorage.getItem(LOTES_KEY) || '[]');
-    asientos = JSON.parse(localStorage.getItem(ASIENTOS_KEY) || '[]');
-    sondeos = JSON.parse(localStorage.getItem(SONDEO_KEY) || '[]');
-    sondeos = sondeos.map(s => {
-      if (!s.historial) s.historial = [];
-      if (!s.estacionalidad) s.estacionalidad = inicializarEstacionalidad();
-      return s;
-    });
-    window.productos = productos; window.lotes = lotes; window.asientos = asientos; window.sondeos = sondeos;
+    const storedProductos = localStorage.getItem(STORAGE_KEY);
+    if (storedProductos) {
+      productos = JSON.parse(storedProductos);
+      // Migrar datos antiguos
+      productos = productos.map(p => {
+        if (!Array.isArray(p.ventasRegistradas)) {
+          if (typeof p.ventasRegistradas === 'number') {
+            const total = p.ventasRegistradas;
+            p.ventasRegistradas = total > 0 ? [{ cantidad: total, fecha: p.fechaLlegada || new Date().toISOString() }] : [];
+          } else {
+            p.ventasRegistradas = [];
+          }
+        }
+        if (!Array.isArray(p.preguntasRegistradas)) {
+          if (typeof p.preguntasRegistradas === 'number') {
+            const total = p.preguntasRegistradas;
+            p.preguntasRegistradas = total > 0 ? [{ cantidad: total, fecha: new Date().toISOString() }] : [];
+          } else {
+            p.preguntasRegistradas = [];
+          }
+        }
+        if (p.totalVendido === undefined) {
+          p.totalVendido = p.ventasRegistradas.reduce((sum, v) => sum + v.cantidad, 0);
+        }
+        if (!Array.isArray(p.competidores)) p.competidores = [];
+        if (!p.estacionalidad) p.estacionalidad = inicializarEstacionalidad();
+        return p;
+      });
+    } else {
+      productos = [];
+    }
+
+    const storedLotes = localStorage.getItem(LOTES_KEY);
+    lotes = storedLotes ? JSON.parse(storedLotes) : [];
+
+    const storedAsientos = localStorage.getItem(ASIENTOS_KEY);
+    asientos = storedAsientos ? JSON.parse(storedAsientos) : [];
+
+    const storedSondeos = localStorage.getItem(SONDEO_KEY);
+    if (storedSondeos) {
+      sondeos = JSON.parse(storedSondeos);
+      sondeos = sondeos.map(s => {
+        if (!s.historial) s.historial = [];
+        if (!s.estacionalidad) s.estacionalidad = inicializarEstacionalidad();
+        return s;
+      });
+    } else {
+      sondeos = [];
+    }
+
+    // Sincronizar variables globales
+    window.productos = productos;
+    window.lotes = lotes;
+    window.asientos = asientos;
+    window.sondeos = sondeos;
+
     console.log(`✅ Datos cargados: ${productos.length} productos, ${sondeos.length} sondeos, ${asientos.length} asientos`);
-  } catch (e) {
-    console.error('❌ Error al cargar datos:', e);
-    productos = []; lotes = []; asientos = []; sondeos = [];
-    window.productos = productos; window.lotes = lotes; window.asientos = asientos; window.sondeos = sondeos;
+  } catch (error) {
+    console.error('❌ Error al cargar datos:', error);
+    productos = [];
+    lotes = [];
+    asientos = [];
+    sondeos = [];
+    window.productos = productos;
+    window.lotes = lotes;
+    window.asientos = asientos;
+    window.sondeos = sondeos;
   }
 }
 
-function guardarProductos() { localStorage.setItem(STORAGE_KEY, JSON.stringify(productos)); window.productos = productos; }
-function guardarLote(loteData) { lotes.push(loteData); localStorage.setItem(LOTES_KEY, JSON.stringify(lotes)); window.lotes = lotes; }
-function guardarAsientos() { localStorage.setItem(ASIENTOS_KEY, JSON.stringify(asientos)); window.asientos = asientos; }
-function agregarAsiento(asiento) { asientos.push(asiento); guardarAsientos(); window.asientos = asientos; }
-function guardarSondeos() { localStorage.setItem(SONDEO_KEY, JSON.stringify(sondeos)); window.sondeos = sondeos; }
-function agregarSondeo(sondeo) { sondeos.push(sondeo); guardarSondeos(); }
+function guardarProductos() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(productos));
+    window.productos = productos;
+    console.log(`✅ ${productos.length} productos guardados`);
+  } catch (error) {
+    console.error('❌ Error al guardar productos:', error);
+  }
+}
+
+function guardarLote(loteData) {
+  lotes.push(loteData);
+  localStorage.setItem(LOTES_KEY, JSON.stringify(lotes));
+  window.lotes = lotes;
+}
+
+function guardarAsientos() {
+  try {
+    localStorage.setItem(ASIENTOS_KEY, JSON.stringify(asientos));
+    window.asientos = asientos;
+    console.log(`✅ ${asientos.length} asientos guardados`);
+  } catch (error) {
+    console.error('❌ Error al guardar asientos:', error);
+  }
+}
+
+function agregarAsiento(asiento) {
+  asientos.push(asiento);
+  guardarAsientos();
+  window.asientos = asientos;
+}
+
+function guardarSondeos() {
+  try {
+    localStorage.setItem(SONDEO_KEY, JSON.stringify(sondeos));
+    window.sondeos = sondeos;
+    console.log(`✅ ${sondeos.length} sondeos guardados`);
+  } catch (error) {
+    console.error('❌ Error al guardar sondeos:', error);
+  }
+}
+
+function agregarSondeo(sondeo) {
+  sondeos.push(sondeo);
+  guardarSondeos();
+  console.log(`✅ Sondeo "${sondeo.nombre}" agregado. Total: ${sondeos.length}`);
+}
+
 function agregarRegistroSondeo(id, vistas, preguntas) {
   const sondeo = sondeos.find(s => s.id === id);
-  if (!sondeo) return false;
+  if (!sondeo) {
+    console.error(`❌ Sondeo con ID ${id} no encontrado`);
+    return false;
+  }
   const hoy = new Date().toISOString().split('T')[0];
   const existe = sondeo.historial.find(r => r.fecha === hoy);
-  if (existe) { existe.vistas = vistas; existe.preguntas = preguntas; }
-  else { sondeo.historial.push({ fecha: hoy, vistas: vistas || 0, preguntas: preguntas || 0 }); }
+  if (existe) {
+    existe.vistas = vistas;
+    existe.preguntas = preguntas;
+  } else {
+    sondeo.historial.push({ fecha: hoy, vistas: vistas || 0, preguntas: preguntas || 0 });
+  }
   guardarSondeos();
+  console.log(`✅ Registro diario guardado para "${sondeo.nombre}"`);
   return true;
 }
 
+// ==========================================
+//  GENERAR ASIENTOS INICIALES DESDE PRODUCTOS
+// ==========================================
 function generarAsientosIniciales() {
   if (asientos.length > 0) return;
+
   const lotesMap = {};
   productos.forEach(p => {
-    if (!lotesMap[p.loteId]) lotesMap[p.loteId] = { fecha: p.fechaLlegada, productos: [], flete: p.fleteInternacional || 0, gastosExtra: p.gastosExtra || [] };
+    if (!lotesMap[p.loteId]) {
+      lotesMap[p.loteId] = {
+        fecha: p.fechaLlegada,
+        productos: [],
+        flete: p.fleteInternacional || 0,
+        gastosExtra: p.gastosExtra || []
+      };
+    }
     lotesMap[p.loteId].productos.push(p);
   });
+
   for (const [loteId, lote] of Object.entries(lotesMap)) {
     const valorLote = lote.productos.reduce((sum, p) => sum + (p.precioUnitarioChina * p.cantidadImportada), 0);
     const totalGastosExtra = lote.gastosExtra.reduce((sum, g) => sum + g.monto, 0);
-    const asiento = {
-      id: generarId(), fecha: lote.fecha,
+
+    const asientoCompra = {
+      id: generarId(),
+      fecha: lote.fecha,
       descripcion: `Compra de lote ${loteId} - ${lote.productos.length} productos`,
       tipo: 'compra',
       movimientos: [
@@ -253,24 +361,53 @@ function generarAsientosIniciales() {
         { cuenta: 'Gastos de Envío', debe: lote.flete, haber: 0 },
         { cuenta: 'Gastos Administrativos', debe: totalGastosExtra, haber: 0 }
       ],
-      referencia: loteId, productos: lote.productos.map(p => p.id)
+      referencia: loteId,
+      productos: lote.productos.map(p => p.id)
     };
-    agregarAsiento(asiento);
+    agregarAsiento(asientoCompra);
+
     lote.productos.forEach(p => {
       if (p.totalVendido > 0) {
         const ingreso = p.totalVendido * p.precioVentaSugerido;
         const costo = p.totalVendido * p.costoUnitarioTotal;
-        agregarAsiento({ id: generarId(), fecha: new Date().toISOString(), descripcion: `Venta de ${p.totalVendido} unidades de ${p.nombre}`, tipo: 'venta', movimientos: [{ cuenta: 'Banco', debe: ingreso, haber: 0 }, { cuenta: 'Ventas', debe: 0, haber: ingreso }], referencia: p.id });
-        agregarAsiento({ id: generarId(), fecha: new Date().toISOString(), descripcion: `Costo de venta de ${p.totalVendido} unidades de ${p.nombre}`, tipo: 'costo', movimientos: [{ cuenta: 'Costo de Ventas', debe: costo, haber: 0 }, { cuenta: 'Inventario', debe: 0, haber: costo }], referencia: p.id });
+        const asientoVenta = {
+          id: generarId(),
+          fecha: new Date().toISOString(),
+          descripcion: `Venta de ${p.totalVendido} unidades de ${p.nombre} (SKU: ${p.sku})`,
+          tipo: 'venta',
+          movimientos: [
+            { cuenta: 'Banco', debe: ingreso, haber: 0 },
+            { cuenta: 'Ventas', debe: 0, haber: ingreso }
+          ],
+          referencia: p.id
+        };
+        agregarAsiento(asientoVenta);
+        const asientoCosto = {
+          id: generarId(),
+          fecha: new Date().toISOString(),
+          descripcion: `Costo de venta de ${p.totalVendido} unidades de ${p.nombre}`,
+          tipo: 'costo',
+          movimientos: [
+            { cuenta: 'Costo de Ventas', debe: costo, haber: 0 },
+            { cuenta: 'Inventario', debe: 0, haber: costo }
+          ],
+          referencia: p.id
+        };
+        agregarAsiento(asientoCosto);
       }
     });
   }
+  console.log(`✅ Asientos iniciales generados: ${asientos.length}`);
 }
 
 // ==========================================
 //  EXPORTAR AL ÁMBITO GLOBAL
 // ==========================================
-window.productos = productos; window.lotes = lotes; window.asientos = asientos; window.sondeos = sondeos;
+window.productos = productos;
+window.lotes = lotes;
+window.asientos = asientos;
+window.sondeos = sondeos;
+
 window.formatearUSD = formatearUSD;
 window.getEmojiRecomendacion = getEmojiRecomendacion;
 window.generarId = generarId;
@@ -279,10 +416,12 @@ window.calcularCostoUnitario = calcularCostoUnitario;
 window.calcularPrecioVenta = calcularPrecioVenta;
 window.calcularEngagementPromedio = calcularEngagementPromedio;
 window.calcularIndicePrioridad = calcularIndicePrioridad;
+
 window.inicializarEstacionalidad = inicializarEstacionalidad;
 window.actualizarEstacionalidad = actualizarEstacionalidad;
 window.obtenerRecomendacionMes = obtenerRecomendacionMes;
 window.migrarEstacionalidad = migrarEstacionalidad;
+
 window.cargarDatos = cargarDatos;
 window.guardarProductos = guardarProductos;
 window.guardarLote = guardarLote;
@@ -292,4 +431,5 @@ window.guardarSondeos = guardarSondeos;
 window.agregarSondeo = agregarSondeo;
 window.agregarRegistroSondeo = agregarRegistroSondeo;
 window.generarAsientosIniciales = generarAsientosIniciales;
+
 console.log('✅ Core cargado correctamente');
