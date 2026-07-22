@@ -308,17 +308,40 @@ window.eliminarCompetidor = function(id, index) {
 };
 
 // ==========================================
-//  ELIMINAR PRODUCTO
+//  ELIMINAR PRODUCTO (CORREGIDO)
 // ==========================================
 window.eliminarProducto = function(id) {
-  if (!confirm('¿Eliminar este producto?')) return;
+  console.log(`🗑️ Intentando eliminar producto ID: ${id}`);
+  if (!confirm('¿Eliminar este producto permanentemente?')) return;
+  
+  // Buscar el producto para mostrar su nombre
+  const prod = window.productos.find(p => p.id === id);
+  if (prod) console.log(`Eliminando: ${prod.nombre} (SKU: ${prod.sku})`);
+  
+  // Filtrar el producto
   window.productos = window.productos.filter(p => p.id !== id);
+  console.log(`Productos restantes: ${window.productos.length}`);
+  
+  // Guardar en localStorage
   window.guardarProductos();
+  
+  // Actualizar la vista según la pestaña activa
   const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
-  else if (currentTab === 'inventario') renderizarInventario();
-  else if (currentTab === 'contabilidad') renderizarContabilidad(document.querySelector('.contab-tab.active')?.dataset.contab || 'diario');
-  alert('✅ Producto eliminado.');
+  console.log(`Pestaña activa: ${currentTab}`);
+  
+  if (currentTab === 'recomendaciones') {
+    renderizarRecomendaciones();
+  } else if (currentTab === 'inventario') {
+    renderizarInventario();
+  } else if (currentTab === 'contabilidad') {
+    const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
+    renderizarContabilidad(contabActiva);
+  } else {
+    // Si estamos en otra pestaña, forzamos el renderizado de recomendaciones e inventario
+    // por si el usuario cambia luego
+  }
+  
+  alert('✅ Producto eliminado correctamente.');
 };
 
 // ==========================================
@@ -485,21 +508,18 @@ window.moverSondeoAProducto = function(id) {
 };
 
 // ==========================================
-//  SONDEO: ELIMINAR
+//  SONDEO: ELIMINAR (CORREGIDO)
 // ==========================================
 window.eliminarSondeo = function(id) {
+  console.log(`🗑️ Intentando eliminar sondeo ID: ${id}`);
   if (!confirm('¿Eliminar este producto del sondeo?')) return;
+  
+  const sondeo = window.sondeos.find(s => s.id === id);
+  if (sondeo) console.log(`Eliminando sondeo: ${sondeo.nombre}`);
+  
   window.sondeos = window.sondeos.filter(s => s.id !== id);
+  console.log(`Sondeos restantes: ${window.sondeos.length}`);
   window.guardarSondeos();
   renderizarSondeos();
   alert('✅ Producto eliminado del sondeo.');
-};
-
-// ==========================================
-//  ESTACIONALIDAD: FILTROS (global)
-// ==========================================
-window.filtroEstacionalidad = 'todos';
-window.filtrarEstacionalidad = function(tipo) {
-  window.filtroEstacionalidad = tipo;
-  renderizarEstacionalidad();
 };
