@@ -89,6 +89,7 @@ function configurarEventosRegistro() {
       nuevosProductos.push(producto);
     });
 
+    // Guardar lote y productos
     window.guardarLote({ id: loteId, fecha: fechaLlegada, flete, gastosExtra, productos: nuevosProductos.map(p => p.id) });
     window.productos = window.productos.concat(nuevosProductos);
     window.guardarProductos();
@@ -124,24 +125,39 @@ function configurarEventosRegistro() {
 
     alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
 
-    // === NUEVO: ACTUALIZAR VISTAS SEGÚN PESTAÑA ACTIVA ===
-    const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-    if (currentTab === 'recomendaciones' && typeof renderizarRecomendaciones === 'function') {
-      renderizarRecomendaciones();
-    } else if (currentTab === 'inventario' && typeof renderizarInventario === 'function') {
-      renderizarInventario();
-    } else if (currentTab === 'contabilidad') {
-      actualizarContabilidadSiActiva(); // Ya existe
-    } else {
-      // Si estamos en registro, no hacemos nada (el formulario ya se reseteó)
-      // Pero también podemos actualizar recomendaciones e inventario en segundo plano
-      // para que cuando el usuario cambie, ya estén actualizados.
-      // Opcional: forzar actualización de todas las vistas.
-      // setTimeout(() => {
-      //   if (typeof renderizarRecomendaciones === 'function') renderizarRecomendaciones();
-      //   if (typeof renderizarInventario === 'function') renderizarInventario();
-      // }, 100);
-    }
+    // ===== ACTUALIZAR TODAS LAS VISTAS =====
+    // Esperamos un momento para que los datos se guarden en localStorage
+    setTimeout(() => {
+      // Forzar actualización de Recomendaciones e Inventario si están activas
+      const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+      
+      console.log(`📌 Actualizando vista: ${currentTab}`);
+      
+      if (currentTab === 'recomendaciones' && typeof renderizarRecomendaciones === 'function') {
+        renderizarRecomendaciones();
+        console.log('✅ Recomendaciones actualizadas');
+      } else if (currentTab === 'inventario' && typeof renderizarInventario === 'function') {
+        renderizarInventario();
+        console.log('✅ Inventario actualizado');
+      } else if (currentTab === 'contabilidad') {
+        actualizarContabilidadSiActiva();
+        console.log('✅ Contabilidad actualizada');
+      } else {
+        // Si estamos en Registro o en otra pestaña, igualmente actualizamos
+        // Recomendaciones e Inventario en segundo plano para que cuando el usuario cambie,
+        // ya estén actualizados.
+        if (typeof renderizarRecomendaciones === 'function') {
+          renderizarRecomendaciones();
+          console.log('✅ Recomendaciones actualizadas en segundo plano');
+        }
+        if (typeof renderizarInventario === 'function') {
+          renderizarInventario();
+          console.log('✅ Inventario actualizado en segundo plano');
+        }
+        // También actualizar contabilidad
+        actualizarContabilidadSiActiva();
+      }
+    }, 200); // Pequeño delay para asegurar que localStorage se haya actualizado
   });
 
   addGastoBtn.addEventListener('click', () => agregarGasto());
