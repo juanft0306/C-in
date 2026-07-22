@@ -78,6 +78,7 @@ function cambiarPantalla(tab) {
         <div style="text-align:center; padding:40px; color:#e74c3c;">
           <i class="fas fa-exclamation-triangle" style="font-size:2rem;"></i>
           <p>Error al cargar ${archivo}: ${error.message}</p>
+          <p>Verifica que el archivo exista en la carpeta public.</p>
         </div>
       `;
       console.error(error);
@@ -96,36 +97,42 @@ function cerrarModal(id) {
 //  INICIALIZACIÓN GENERAL
 // ==========================================
 document.addEventListener('DOMContentLoaded', function() {
+  // Cargar datos desde localStorage
   window.cargarDatos();
 
+  // Generar asientos iniciales si no existen
   if (window.asientos.length === 0) {
     window.generarAsientosIniciales();
   }
 
-  // Migrar estacionalidad
+  // Migrar estacionalidad si hay datos
   if (window.productos.length > 0 || window.sondeos.length > 0) {
     window.migrarEstacionalidad();
   }
 
+  // Configurar navegación por tabs
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       cambiarPantalla(this.dataset.tab);
     });
   });
 
+  // Menú hamburguesa
   const hamburger = document.getElementById('hamburgerBtn');
   if (hamburger) {
     hamburger.addEventListener('click', toggleMenu);
   }
 
+  // Cerrar menú al hacer clic en una pestaña (móvil)
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', closeMenu);
   });
 
+  // Botón refrescar (header)
   document.getElementById('btnRefresh').addEventListener('click', () => {
     window.cargarDatos();
     const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-    // Disparar renderizado según pestaña (se llama desde los inicializadores)
+    // Disparar renderizado según pestaña
     if (currentTab === 'recomendaciones' && typeof renderizarRecomendaciones === 'function') renderizarRecomendaciones();
     else if (currentTab === 'inventario' && typeof renderizarInventario === 'function') renderizarInventario();
     else if (currentTab === 'contabilidad' && typeof renderizarContabilidad === 'function') {
@@ -137,6 +144,65 @@ document.addEventListener('DOMContentLoaded', function() {
     alert('✅ Datos actualizados desde localStorage.');
   });
 
+  // ==========================================
+  //  BOTÓN PARA BORRAR TODOS LOS DATOS
+  // ==========================================
+  const btnBorrar = document.getElementById('btnBorrarDatos');
+  if (btnBorrar) {
+    btnBorrar.addEventListener('click', function() {
+      // Primera confirmación
+      const confirmacion = confirm(
+        '⚠️ ¿ESTÁS SEGURO DE BORRAR TODOS LOS DATOS?\n\n' +
+        'Se eliminarán permanentemente:\n' +
+        '• Todos los productos registrados\n' +
+        '• Todos los lotes importados\n' +
+        '• Todos los asientos contables\n' +
+        '• Todos los sondeos y su historial\n' +
+        '• Todas las métricas de redes sociales\n' +
+        '• Todas las ventas y preguntas registradas\n\n' +
+        '¡Esta acción NO se puede deshacer!'
+      );
+      
+      if (!confirmacion) return;
+      
+      // Segunda confirmación (por seguridad)
+      const segundaConfirmacion = confirm(
+        '🔴 ÚLTIMA OPORTUNIDAD\n\n' +
+        '¿Realmente deseas eliminar TODOS los datos de la aplicación?'
+      );
+      
+      if (!segundaConfirmacion) return;
+      
+      try {
+        // Borrar todas las claves de localStorage que empiecen con 'coin_'
+        const keys = Object.keys(localStorage);
+        const coinKeys = keys.filter(key => key.startsWith('coin_'));
+        
+        coinKeys.forEach(key => {
+          localStorage.removeItem(key);
+          console.log(`🗑️ Eliminada clave: ${key}`);
+        });
+        
+        // También limpiar las variables globales
+        window.productos = [];
+        window.lotes = [];
+        window.asientos = [];
+        window.sondeos = [];
+        
+        // Mostrar mensaje de éxito
+        alert('✅ Todos los datos han sido eliminados correctamente.\n\nLa página se recargará para aplicar los cambios.');
+        
+        // Recargar la página
+        location.reload();
+        
+      } catch (error) {
+        console.error('❌ Error al borrar datos:', error);
+        alert('❌ Ocurrió un error al borrar los datos. Revisa la consola para más detalles.');
+      }
+    });
+  }
+
+  // Cargar la primera pantalla (registro)
   cambiarPantalla('registro');
 });
 
