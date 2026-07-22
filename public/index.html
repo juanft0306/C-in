@@ -4,15 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>C🌍in · Importa y Vende</title>
-  <!-- Font Awesome (iconos) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- ========================================== -->
-  <!-- HEADER                                      -->
-  <!-- ========================================== -->
+  <!-- HEADER -->
   <header class="header">
     <div class="container">
       <div class="logo">
@@ -23,7 +20,10 @@
         <button class="btn btn-outline" id="btnRefresh">
           <i class="fas fa-sync-alt"></i> Actualizar
         </button>
-        <!-- BOTÓN HAMBURGUESA -->
+        <!-- BOTÓN PARA BORRAR TODOS LOS DATOS -->
+        <button class="btn btn-danger" id="btnBorrarDatos">
+          <i class="fas fa-trash-alt"></i> Borrar datos
+        </button>
         <button class="hamburger" id="hamburgerBtn" aria-label="Menú">
           <span></span>
           <span></span>
@@ -33,9 +33,7 @@
     </div>
   </header>
 
-  <!-- ========================================== -->
-  <!-- NAVEGACIÓN (TABS)                          -->
-  <!-- ========================================== -->
+  <!-- NAVEGACIÓN (TABS) -->
   <div class="container">
     <nav class="tabs-nav" id="tabsNav">
       <button class="tab-btn active" data-tab="registro">
@@ -59,9 +57,7 @@
     </nav>
   </div>
 
-  <!-- ========================================== -->
-  <!-- CONTENEDOR PRINCIPAL (carga dinámica)      -->
-  <!-- ========================================== -->
+  <!-- CONTENEDOR PRINCIPAL -->
   <main class="container" id="mainContainer">
     <div style="text-align:center; padding:40px; color:var(--text-secondary);">
       <i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i>
@@ -69,18 +65,14 @@
     </div>
   </main>
 
-  <!-- ========================================== -->
-  <!-- FOOTER                                     -->
-  <!-- ========================================== -->
+  <!-- FOOTER -->
   <footer class="footer">
     <div class="container">
       <p>&copy; 2025 C🌍in · Hecho con <i class="fas fa-heart" style="color:#e74c3c;"></i> para importadores venezolanos</p>
     </div>
   </footer>
 
-  <!-- ========================================== -->
-  <!-- SCRIPTS (orden correcto)                   -->
-  <!-- ========================================== -->
+  <!-- SCRIPTS -->
   <script src="core.js"></script>
   <script src="ui-base.js"></script>
   <script src="ui-render.js"></script>
