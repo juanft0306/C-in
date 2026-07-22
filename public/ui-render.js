@@ -940,10 +940,10 @@ function renderizarEstacionalidad() {
   // Recolectar todos los objetos con estacionalidad
   let items = [];
   if (filtroEstacionalidad === 'todos' || filtroEstacionalidad === 'productos') {
-    items = items.concat(window.productos.map(p => ({ ...p, tipo: 'producto' })));
+    items = items.concat((window.productos || []).map(p => ({ ...p, tipo: 'producto' })));
   }
   if (filtroEstacionalidad === 'todos' || filtroEstacionalidad === 'sondeos') {
-    items = items.concat(window.sondeos.map(s => ({ ...s, tipo: 'sondeo' })));
+    items = items.concat((window.sondeos || []).map(s => ({ ...s, tipo: 'sondeo' })));
   }
 
   // Filtrar los que tienen datos de estacionalidad
