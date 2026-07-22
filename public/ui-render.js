@@ -123,7 +123,25 @@ function configurarEventosRegistro() {
     document.getElementById('valorPrecio').value = '40';
 
     alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
-    actualizarContabilidadSiActiva();
+
+    // === NUEVO: ACTUALIZAR VISTAS SEGÚN PESTAÑA ACTIVA ===
+    const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+    if (currentTab === 'recomendaciones' && typeof renderizarRecomendaciones === 'function') {
+      renderizarRecomendaciones();
+    } else if (currentTab === 'inventario' && typeof renderizarInventario === 'function') {
+      renderizarInventario();
+    } else if (currentTab === 'contabilidad') {
+      actualizarContabilidadSiActiva(); // Ya existe
+    } else {
+      // Si estamos en registro, no hacemos nada (el formulario ya se reseteó)
+      // Pero también podemos actualizar recomendaciones e inventario en segundo plano
+      // para que cuando el usuario cambie, ya estén actualizados.
+      // Opcional: forzar actualización de todas las vistas.
+      // setTimeout(() => {
+      //   if (typeof renderizarRecomendaciones === 'function') renderizarRecomendaciones();
+      //   if (typeof renderizarInventario === 'function') renderizarInventario();
+      // }, 100);
+    }
   });
 
   addGastoBtn.addEventListener('click', () => agregarGasto());
