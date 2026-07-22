@@ -161,7 +161,7 @@ window.confirmarPregunta = function(id) {
 };
 
 // ==========================================
-//  REDES (producto)
+//  REDES (producto) - MODAL MEJORADO
 // ==========================================
 window.mostrarModalRedes = function(id) {
   const prod = window.productos.find(p => p.id === id);
@@ -170,25 +170,54 @@ window.mostrarModalRedes = function(id) {
   
   const modalHTML = `
     <div class="modal-overlay" id="modalRedes">
-      <div class="modal-content" style="max-width:600px;">
+      <div class="modal-content" style="max-width:650px;">
         <div class="modal-header">
-          <h3><i class="fas fa-share-alt" style="color:var(--gold);"></i> Redes sociales</h3>
+          <h3><i class="fas fa-share-alt" style="color:var(--gold);"></i> Redes sociales - ${prod.nombre}</h3>
           <button class="modal-close" onclick="cerrarModal('modalRedes')">&times;</button>
         </div>
         <div class="modal-body">
-          <p style="color:var(--text-secondary);margin-bottom:12px;">Producto: <strong>${prod.nombre}</strong> (SKU: ${prod.sku})</p>
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
-            ${['instagram','tiktok','marketplace'].map(plataforma => `
-              <div style="background:var(--glass-bg);padding:8px;border-radius:8px;border:1px solid var(--border-color);text-align:center;">
-                <span style="font-size:0.7rem;color:var(--text-secondary);">${plataforma.charAt(0).toUpperCase()+plataforma.slice(1)}</span>
-                <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
-                  <input type="number" id="redes_${plataforma}_likes" placeholder="Likes" value="${datos[plataforma]?.likes||0}" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
-                  <input type="number" id="redes_${plataforma}_com" placeholder="Comentarios" value="${datos[plataforma]?.comentarios||0}" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
-                  <input type="number" id="redes_${plataforma}_share" placeholder="Compartidos" value="${datos[plataforma]?.compartidos||0}" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
-                  <input type="number" id="redes_${plataforma}_alc" placeholder="Alcance" value="${datos[plataforma]?.alcance||100}" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
+          <p style="color:var(--text-secondary);margin-bottom:12px;font-size:0.9rem;">
+            📊 Actualiza las métricas de cada plataforma. Los campos <strong>Alcance</strong> son obligatorios para calcular el engagement.
+          </p>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+            ${['instagram', 'tiktok', 'marketplace'].map(plataforma => {
+              const nombre = plataforma.charAt(0).toUpperCase() + plataforma.slice(1);
+              const data = datos[plataforma] || {};
+              return `
+                <div style="background:var(--glass-bg);padding:12px;border-radius:10px;border:1px solid var(--border-color);">
+                  <h4 style="text-align:center;color:var(--gold);font-size:0.85rem;margin-bottom:8px;border-bottom:1px solid var(--border-color);padding-bottom:6px;">
+                    ${plataforma === 'instagram' ? '📸' : plataforma === 'tiktok' ? '🎵' : '🛒'} ${nombre}
+                  </h4>
+                  <div style="display:flex;flex-direction:column;gap:6px;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:0.7rem;color:var(--text-secondary);min-width:65px;">❤️ Likes:</span>
+                      <input type="number" id="redes_${plataforma}_likes" placeholder="0" value="${data.likes || 0}" 
+                             style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:0.7rem;color:var(--text-secondary);min-width:65px;">💬 Comentarios:</span>
+                      <input type="number" id="redes_${plataforma}_com" placeholder="0" value="${data.comentarios || 0}" 
+                             style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:0.7rem;color:var(--text-secondary);min-width:65px;">🔄 Compartidos:</span>
+                      <input type="number" id="redes_${plataforma}_share" placeholder="0" value="${data.compartidos || 0}" 
+                             style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;border-top:1px solid var(--border-color);padding-top:6px;margin-top:2px;">
+                      <span style="font-size:0.7rem;color:var(--gold);min-width:65px;font-weight:600;">👁️ Alcance:</span>
+                      <input type="number" id="redes_${plataforma}_alc" placeholder="100" value="${data.alcance || 100}" 
+                             style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;border-color:var(--gold);" />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            `).join('')}
+              `;
+            }).join('')}
+          </div>
+          
+          <div style="margin-top:12px;padding:8px 12px;background:rgba(247,201,72,0.1);border-radius:8px;border:1px solid var(--gold);font-size:0.75rem;color:var(--text-secondary);text-align:center;">
+            ℹ️ El engagement se calcula como: (Likes + Comentarios + Compartidos) / Alcance × 100
           </div>
         </div>
         <div class="modal-footer">
@@ -308,39 +337,26 @@ window.eliminarCompetidor = function(id, index) {
 };
 
 // ==========================================
-//  ELIMINAR PRODUCTO (CORREGIDO)
+//  ELIMINAR PRODUCTO
 // ==========================================
 window.eliminarProducto = function(id) {
   console.log(`🗑️ Intentando eliminar producto ID: ${id}`);
   if (!confirm('¿Eliminar este producto permanentemente?')) return;
   
-  // Buscar el producto para mostrar su nombre
   const prod = window.productos.find(p => p.id === id);
   if (prod) console.log(`Eliminando: ${prod.nombre} (SKU: ${prod.sku})`);
   
-  // Filtrar el producto
   window.productos = window.productos.filter(p => p.id !== id);
   console.log(`Productos restantes: ${window.productos.length}`);
-  
-  // Guardar en localStorage
   window.guardarProductos();
   
-  // Actualizar la vista según la pestaña activa
   const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-  console.log(`Pestaña activa: ${currentTab}`);
-  
-  if (currentTab === 'recomendaciones') {
-    renderizarRecomendaciones();
-  } else if (currentTab === 'inventario') {
-    renderizarInventario();
-  } else if (currentTab === 'contabilidad') {
+  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
+  else if (currentTab === 'inventario') renderizarInventario();
+  else if (currentTab === 'contabilidad') {
     const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
     renderizarContabilidad(contabActiva);
-  } else {
-    // Si estamos en otra pestaña, forzamos el renderizado de recomendaciones e inventario
-    // por si el usuario cambia luego
   }
-  
   alert('✅ Producto eliminado correctamente.');
 };
 
@@ -354,24 +370,54 @@ window.mostrarModalSondeoRedes = function(id) {
   
   const modalHTML = `
     <div class="modal-overlay" id="modalSondeoRedes">
-      <div class="modal-content" style="max-width:600px;">
+      <div class="modal-content" style="max-width:650px;">
         <div class="modal-header">
-          <h3><i class="fas fa-share-alt" style="color:var(--gold);"></i> Redes - ${sondeo.nombre}</h3>
+          <h3><i class="fas fa-share-alt" style="color:var(--gold);"></i> Redes sociales - ${sondeo.nombre}</h3>
           <button class="modal-close" onclick="cerrarModal('modalSondeoRedes')">&times;</button>
         </div>
         <div class="modal-body">
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
-            ${['instagram','tiktok','marketplace'].map(plataforma => `
-              <div style="background:var(--glass-bg);padding:8px;border-radius:8px;border:1px solid var(--border-color);text-align:center;">
-                <span style="font-size:0.7rem;color:var(--text-secondary);">${plataforma.charAt(0).toUpperCase()+plataforma.slice(1)}</span>
-                <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
-                  <input type="number" id="sondeoredes_${plataforma}_likes" placeholder="Likes" value="${datos[plataforma]?.likes||0}" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
-                  <input type="number" id="sondeoredes_${plataforma}_com" placeholder="Comentarios" value="${datos[plataforma]?.comentarios||0}" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
-                  <input type="number" id="sondeoredes_${plataforma}_share" placeholder="Compartidos" value="${datos[plataforma]?.compartidos||0}" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
-                  <input type="number" id="sondeoredes_${plataforma}_alc" placeholder="Alcance" value="${datos[plataforma]?.alcance||100}" style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
+          <p style="color:var(--text-secondary);margin-bottom:12px;font-size:0.9rem;">
+            📊 Registra las métricas de cada plataforma para medir el interés del mercado.
+          </p>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+            ${['instagram', 'tiktok', 'marketplace'].map(plataforma => {
+              const nombre = plataforma.charAt(0).toUpperCase() + plataforma.slice(1);
+              const data = datos[plataforma] || {};
+              return `
+                <div style="background:var(--glass-bg);padding:12px;border-radius:10px;border:1px solid var(--border-color);">
+                  <h4 style="text-align:center;color:var(--gold);font-size:0.85rem;margin-bottom:8px;border-bottom:1px solid var(--border-color);padding-bottom:6px;">
+                    ${plataforma === 'instagram' ? '📸' : plataforma === 'tiktok' ? '🎵' : '🛒'} ${nombre}
+                  </h4>
+                  <div style="display:flex;flex-direction:column;gap:6px;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:0.7rem;color:var(--text-secondary);min-width:65px;">❤️ Likes:</span>
+                      <input type="number" id="sondeoredes_${plataforma}_likes" placeholder="0" value="${data.likes || 0}" 
+                             style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:0.7rem;color:var(--text-secondary);min-width:65px;">💬 Comentarios:</span>
+                      <input type="number" id="sondeoredes_${plataforma}_com" placeholder="0" value="${data.comentarios || 0}" 
+                             style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:0.7rem;color:var(--text-secondary);min-width:65px;">🔄 Compartidos:</span>
+                      <input type="number" id="sondeoredes_${plataforma}_share" placeholder="0" value="${data.compartidos || 0}" 
+                             style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;" />
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;border-top:1px solid var(--border-color);padding-top:6px;margin-top:2px;">
+                      <span style="font-size:0.7rem;color:var(--gold);min-width:65px;font-weight:600;">👁️ Alcance:</span>
+                      <input type="number" id="sondeoredes_${plataforma}_alc" placeholder="100" value="${data.alcance || 100}" 
+                             style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;border-color:var(--gold);" />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            `).join('')}
+              `;
+            }).join('')}
+          </div>
+          
+          <div style="margin-top:12px;padding:8px 12px;background:rgba(247,201,72,0.1);border-radius:8px;border:1px solid var(--gold);font-size:0.75rem;color:var(--text-secondary);text-align:center;">
+            ℹ️ El engagement se calcula como: (Likes + Comentarios + Compartidos) / Alcance × 100
           </div>
         </div>
         <div class="modal-footer">
@@ -508,7 +554,7 @@ window.moverSondeoAProducto = function(id) {
 };
 
 // ==========================================
-//  SONDEO: ELIMINAR (CORREGIDO)
+//  SONDEO: ELIMINAR
 // ==========================================
 window.eliminarSondeo = function(id) {
   console.log(`🗑️ Intentando eliminar sondeo ID: ${id}`);
@@ -522,4 +568,13 @@ window.eliminarSondeo = function(id) {
   window.guardarSondeos();
   renderizarSondeos();
   alert('✅ Producto eliminado del sondeo.');
+};
+
+// ==========================================
+//  ESTACIONALIDAD: FILTROS (global)
+// ==========================================
+window.filtroEstacionalidad = 'todos';
+window.filtrarEstacionalidad = function(tipo) {
+  window.filtroEstacionalidad = tipo;
+  renderizarEstacionalidad();
 };
