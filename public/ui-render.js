@@ -125,12 +125,11 @@ function configurarEventosRegistro() {
 
     alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
 
-    // ===== ACTUALIZAR TODAS LAS VISTAS =====
-    // Ya no depende de variables globales, las funciones usarán getElementById internamente
+    // ===== ACTUALIZAR TODAS LAS VISTAS (SIN DEPENDER DE VARIABLES GLOBALES) =====
     renderizarRecomendaciones();
     renderizarInventario();
-    actualizarContabilidadSiActiva();
     renderizarSondeos();
+    actualizarContabilidadSiActiva();
     renderizarEstacionalidad();
     console.log('✅ Todas las vistas actualizadas desde Registro');
   });
@@ -158,7 +157,7 @@ function inicializarRecomendaciones() {
 }
 
 function renderizarRecomendaciones() {
-  // Obtener elementos del DOM directamente (no usar variables globales)
+  // Obtener elementos del DOM directamente
   const productList = document.getElementById('productList');
   const productCount = document.getElementById('productCount');
   
@@ -378,14 +377,12 @@ function inicializarInventario() {
 }
 
 function renderizarInventario() {
-  // Obtener elementos del DOM directamente
   const inventarioContainer = document.getElementById('inventarioContainer');
   const stockCount = document.getElementById('stockCount');
   const valorTotal = document.getElementById('valorTotal');
   const totalProductos = document.getElementById('totalProductos');
 
   if (!inventarioContainer) {
-    // Si no existe la pestaña, no hacer nada
     return;
   }
 
@@ -773,6 +770,7 @@ function renderizarSondeos() {
   const sondeoEvaluar = document.getElementById('sondeoEvaluar');
   const sondeoDescartar = document.getElementById('sondeoDescartar');
 
+  // Usar window.sondeos para asegurar sincronización
   const sondeos = window.sondeos || [];
   if (!sondeoList) return;
 
