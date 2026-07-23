@@ -62,14 +62,47 @@ function cambiarPantalla(tab) {
     .then(html => {
       document.getElementById('mainContainer').innerHTML = html;
       
-      // Inicializar según la pestaña
+      // Siempre llamar a las funciones de renderizado directamente
       switch (tab) {
-        case 'registro': if (typeof inicializarRegistro === 'function') inicializarRegistro(); break;
-        case 'recomendaciones': if (typeof inicializarRecomendaciones === 'function') inicializarRecomendaciones(); break;
-        case 'inventario': if (typeof inicializarInventario === 'function') inicializarInventario(); break;
-        case 'contabilidad': if (typeof inicializarContabilidad === 'function') inicializarContabilidad(); break;
-        case 'sondeo': if (typeof inicializarSondeo === 'function') inicializarSondeo(); break;
-        case 'estacionalidad': if (typeof inicializarEstacionalidadPantalla === 'function') inicializarEstacionalidadPantalla(); break;
+        case 'registro': 
+          if (typeof inicializarRegistro === 'function') inicializarRegistro(); 
+          break;
+        case 'recomendaciones': 
+          if (document.getElementById('productList')) {
+            if (typeof renderizarRecomendaciones === 'function') renderizarRecomendaciones();
+          } else {
+            if (typeof inicializarRecomendaciones === 'function') inicializarRecomendaciones();
+          }
+          break;
+        case 'inventario': 
+          if (document.getElementById('inventarioContainer')) {
+            if (typeof renderizarInventario === 'function') renderizarInventario();
+          } else {
+            if (typeof inicializarInventario === 'function') inicializarInventario();
+          }
+          break;
+        case 'contabilidad': 
+          if (document.getElementById('contabilidadContainer')) {
+            const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
+            if (typeof renderizarContabilidad === 'function') renderizarContabilidad(contabActiva);
+          } else {
+            if (typeof inicializarContabilidad === 'function') inicializarContabilidad();
+          }
+          break;
+        case 'sondeo': 
+          if (document.getElementById('sondeoList')) {
+            if (typeof renderizarSondeos === 'function') renderizarSondeos();
+          } else {
+            if (typeof inicializarSondeo === 'function') inicializarSondeo();
+          }
+          break;
+        case 'estacionalidad': 
+          if (document.getElementById('estacionalidadList')) {
+            if (typeof renderizarEstacionalidad === 'function') renderizarEstacionalidad();
+          } else {
+            if (typeof inicializarEstacionalidadPantalla === 'function') inicializarEstacionalidadPantalla();
+          }
+          break;
       }
       closeMenu();
     })
