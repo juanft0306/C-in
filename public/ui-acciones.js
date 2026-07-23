@@ -101,8 +101,13 @@ window.confirmarVenta = function(id) {
   });
 
   cerrarModal('modalVenta');
+  
+  // ===== ACTUALIZAR TODAS LAS VISTAS =====
   renderizarRecomendaciones();
+  renderizarInventario();
+  renderizarSondeos();
   actualizarContabilidadSiActiva();
+  
   alert(`✅ Venta registrada. Total vendido: ${prod.totalVendido} unidades.`);
 };
 
@@ -156,7 +161,12 @@ window.confirmarPregunta = function(id) {
   window.guardarProductos();
   
   cerrarModal('modalPregunta');
+  
+  // ===== ACTUALIZAR TODAS LAS VISTAS =====
   renderizarRecomendaciones();
+  renderizarInventario();
+  renderizarSondeos();
+  
   alert(`✅ Preguntas registradas. Total: ${prod.preguntasRegistradas.reduce((s, r) => s + r.cantidad, 0)}.`);
 };
 
@@ -255,7 +265,12 @@ window.confirmarRedes = function(id) {
   window.actualizarEstacionalidad(prod, 'interaccion', totalInteracciones, new Date().toISOString());
   window.guardarProductos();
   cerrarModal('modalRedes');
+  
+  // ===== ACTUALIZAR TODAS LAS VISTAS =====
   renderizarRecomendaciones();
+  renderizarInventario();
+  renderizarSondeos();
+  
   alert('✅ Métricas de redes actualizadas.');
 };
 
@@ -350,13 +365,12 @@ window.eliminarProducto = function(id) {
   console.log(`Productos restantes: ${window.productos.length}`);
   window.guardarProductos();
   
-  const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-  if (currentTab === 'recomendaciones') renderizarRecomendaciones();
-  else if (currentTab === 'inventario') renderizarInventario();
-  else if (currentTab === 'contabilidad') {
-    const contabActiva = document.querySelector('.contab-tab.active')?.dataset.contab || 'diario';
-    renderizarContabilidad(contabActiva);
-  }
+  // ===== ACTUALIZAR TODAS LAS VISTAS =====
+  renderizarRecomendaciones();
+  renderizarInventario();
+  renderizarSondeos();
+  actualizarContabilidadSiActiva();
+  
   alert('✅ Producto eliminado correctamente.');
 };
 
@@ -549,7 +563,12 @@ window.moverSondeoAProducto = function(id) {
   window.guardarProductos();
   window.sondeos = window.sondeos.filter(s => s.id !== id);
   window.guardarSondeos();
+  
+  // ===== ACTUALIZAR TODAS LAS VISTAS =====
   renderizarSondeos();
+  renderizarRecomendaciones();
+  renderizarInventario();
+  
   alert(`✅ "${sondeo.nombre}" importado al registro de productos.`);
 };
 
