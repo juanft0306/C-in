@@ -125,23 +125,14 @@ function configurarEventosRegistro() {
 
     alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
 
-    // ===== ACTUALIZAR VISTAS SEGÚN PESTAÑA ACTIVA =====
-    const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-    
-    if (currentTab === 'recomendaciones' && document.getElementById('productList')) {
-      renderizarRecomendaciones();
-      console.log('✅ Recomendaciones actualizadas');
-    } else if (currentTab === 'inventario' && document.getElementById('inventarioContainer')) {
-      renderizarInventario();
-      console.log('✅ Inventario actualizado');
-    } else if (currentTab === 'contabilidad') {
-      actualizarContabilidadSiActiva();
-      console.log('✅ Contabilidad actualizada');
-    } else {
-      // Si estamos en Registro, no hacemos nada, pero al cambiar de pestaña
-      // la nueva lógica de cambiarPantalla renderizará automáticamente
-      console.log('ℹ️ En pestaña Registro, las vistas se actualizarán al cambiar.');
-    }
+    // ===== ACTUALIZAR TODAS LAS VISTAS =====
+    // Ya no depende de variables globales, las funciones usarán getElementById internamente
+    renderizarRecomendaciones();
+    renderizarInventario();
+    actualizarContabilidadSiActiva();
+    renderizarSondeos();
+    renderizarEstacionalidad();
+    console.log('✅ Todas las vistas actualizadas desde Registro');
   });
 
   addGastoBtn.addEventListener('click', () => agregarGasto());
@@ -152,14 +143,7 @@ function configurarEventosRegistro() {
 //  RECOMENDACIONES
 // ==========================================
 function inicializarRecomendaciones() {
-  productList = document.getElementById('productList');
-  productCount = document.getElementById('productCount');
-
-  if (!productList) {
-    console.error('❌ Error: No se encontraron elementos en recomendaciones.html');
-    return;
-  }
-
+  // Configurar filtros
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -174,8 +158,16 @@ function inicializarRecomendaciones() {
 }
 
 function renderizarRecomendaciones() {
+  // Obtener elementos del DOM directamente (no usar variables globales)
+  const productList = document.getElementById('productList');
+  const productCount = document.getElementById('productCount');
+  
+  if (!productList) {
+    // Si no existe, simplemente no hacer nada (la pestaña no está cargada)
+    return;
+  }
+
   const productos = window.productos || [];
-  if (!productList) return;
 
   let productosFiltrados = productos;
   if (filtroActual === 'traer-mas') {
@@ -381,22 +373,21 @@ function calcularPrioridad(p) {
 //  INVENTARIO
 // ==========================================
 function inicializarInventario() {
-  const inventarioContainer = document.getElementById('inventarioContainer');
-  if (!inventarioContainer) {
-    console.error('❌ Error: No se encontró inventarioContainer');
-    return;
-  }
   renderizarInventario();
   console.log('✅ Pantalla de inventario inicializada');
 }
 
 function renderizarInventario() {
+  // Obtener elementos del DOM directamente
   const inventarioContainer = document.getElementById('inventarioContainer');
   const stockCount = document.getElementById('stockCount');
   const valorTotal = document.getElementById('valorTotal');
   const totalProductos = document.getElementById('totalProductos');
 
-  if (!inventarioContainer) return;
+  if (!inventarioContainer) {
+    // Si no existe la pestaña, no hacer nada
+    return;
+  }
 
   const productos = window.productos || [];
   if (productos.length === 0) {
