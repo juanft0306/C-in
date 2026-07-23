@@ -125,39 +125,23 @@ function configurarEventosRegistro() {
 
     alert(`✅ Lote guardado con ${nuevosProductos.length} productos.`);
 
-    // ===== ACTUALIZAR TODAS LAS VISTAS =====
-    // Esperamos un momento para que los datos se guarden en localStorage
-    setTimeout(() => {
-      // Forzar actualización de Recomendaciones e Inventario si están activas
-      const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
-      
-      console.log(`📌 Actualizando vista: ${currentTab}`);
-      
-      if (currentTab === 'recomendaciones' && typeof renderizarRecomendaciones === 'function') {
-        renderizarRecomendaciones();
-        console.log('✅ Recomendaciones actualizadas');
-      } else if (currentTab === 'inventario' && typeof renderizarInventario === 'function') {
-        renderizarInventario();
-        console.log('✅ Inventario actualizado');
-      } else if (currentTab === 'contabilidad') {
-        actualizarContabilidadSiActiva();
-        console.log('✅ Contabilidad actualizada');
-      } else {
-        // Si estamos en Registro o en otra pestaña, igualmente actualizamos
-        // Recomendaciones e Inventario en segundo plano para que cuando el usuario cambie,
-        // ya estén actualizados.
-        if (typeof renderizarRecomendaciones === 'function') {
-          renderizarRecomendaciones();
-          console.log('✅ Recomendaciones actualizadas en segundo plano');
-        }
-        if (typeof renderizarInventario === 'function') {
-          renderizarInventario();
-          console.log('✅ Inventario actualizado en segundo plano');
-        }
-        // También actualizar contabilidad
-        actualizarContabilidadSiActiva();
-      }
-    }, 200); // Pequeño delay para asegurar que localStorage se haya actualizado
+    // ===== ACTUALIZAR VISTAS SEGÚN PESTAÑA ACTIVA =====
+    const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'registro';
+    
+    if (currentTab === 'recomendaciones' && document.getElementById('productList')) {
+      renderizarRecomendaciones();
+      console.log('✅ Recomendaciones actualizadas');
+    } else if (currentTab === 'inventario' && document.getElementById('inventarioContainer')) {
+      renderizarInventario();
+      console.log('✅ Inventario actualizado');
+    } else if (currentTab === 'contabilidad') {
+      actualizarContabilidadSiActiva();
+      console.log('✅ Contabilidad actualizada');
+    } else {
+      // Si estamos en Registro, no hacemos nada, pero al cambiar de pestaña
+      // la nueva lógica de cambiarPantalla renderizará automáticamente
+      console.log('ℹ️ En pestaña Registro, las vistas se actualizarán al cambiar.');
+    }
   });
 
   addGastoBtn.addEventListener('click', () => agregarGasto());
@@ -1058,3 +1042,12 @@ function renderizarEstacionalidad() {
 
   container.innerHTML = html;
 }
+
+// ==========================================
+//  EXPORTAR FUNCIONES PARA USO GLOBAL
+// ==========================================
+window.renderizarRecomendaciones = renderizarRecomendaciones;
+window.renderizarInventario = renderizarInventario;
+window.renderizarSondeos = renderizarSondeos;
+window.renderizarEstacionalidad = renderizarEstacionalidad;
+window.renderizarContabilidad = renderizarContabilidad;
